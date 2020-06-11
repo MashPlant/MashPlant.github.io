@@ -28,7 +28,7 @@
 <meta property="og:description" content="地址：https:&#x2F;&#x2F;mashplant.online&#x2F;tomasulo，欢迎试用和找bug。需要声明的是这和本学期的计算机系统结构课没有任何关系，我是今天(6.11)才把它做出来的，也没有以任何形式告知助教。 最近学了一下Rust的WASM工具链，感觉用这一套来写这种给大家分享的算法模拟器是相当合适的，因为可以用Rust写，写的很舒服，而且可以在浏览器上访问，分享起来也很方便。 这里特别感谢ji">
 <meta property="og:image" content="https://mashplant.github.io/pic/tomasulo_speed.png">
 <meta property="article:published_time" content="2020-06-11T14:10:29.000Z">
-<meta property="article:modified_time" content="2020-06-11T14:49:58.311Z">
+<meta property="article:modified_time" content="2020-06-11T23:39:04.030Z">
 <meta property="article:author" content="MashPlant">
 <meta property="article:tag" content="Rust">
 <meta property="article:tag" content="WebAssembly">
@@ -186,10 +186,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">Posted on</span>
-              
 
-              <time title="Created: 2020-06-11 22:10:29 / Modified: 22:49:58" itemprop="dateCreated datePublished" datetime="2020-06-11T22:10:29+08:00">2020-06-11</time>
+              <time title="Created: 2020-06-11 22:10:29" itemprop="dateCreated datePublished" datetime="2020-06-11T22:10:29+08:00">2020-06-11</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-06-12 07:39:04" itemprop="dateModified" datetime="2020-06-12T07:39:04+08:00">2020-06-12</time>
+              </span>
 
           
             <span id="/2020/06/11/tomasulo-introduction-md/" class="post-meta-item leancloud_visitors" data-flag-title="一个在线的Tomasulo模拟器" title="Views">
@@ -234,7 +240,7 @@
 <p>前端是复制n+e的，这个我是真学不会，也没有什么地方系统的讲这个，其实我也没有什么学习热情。有一说一，n+e的后端的Python写的确实是不怎么样，当然他自己肯定写起来很快，我也相信他维护起来没有困难，只是苦了那些要看他的代码的学弟学妹了。</p>
 <h1 id="性能"><a href="#性能" class="headerlink" title="性能"></a>性能</h1><p>n+e：</p>
 <blockquote>
-<p>点击多步运行，输入100000（十万），来个死循环，大概1.8s这样能执行完。相比 <a href="https://tomasulo.harrychen.xyz/，同样程序他运行10000（一万）次就得花2-3s，我的效率是他的十倍左右。" target="_blank" rel="noopener">https://tomasulo.harrychen.xyz/，同样程序他运行10000（一万）次就得花2-3s，我的效率是他的十倍左右。</a></p>
+<p>点击多步运行，输入100000（十万），来个死循环，大概1.8s这样能执行完。相比 <a href="https://tomasulo.harrychen.xyz/" target="_blank" rel="noopener">https://tomasulo.harrychen.xyz/</a> ，同样程序他运行10000（一万）次就得花2-3s，我的效率是他的十倍左右。</p>
 <p>（谁说python代码慢？）</p>
 <p>附：死循环代码如下：</p>
 <p>LD F1 0x0<br>MUL F3 F1 F1<br>JUMP 0x0 F3 0xFFFFFFFE</p>
