@@ -20,14 +20,21 @@
     var CONFIG = {"hostname":"mashplant.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"flat"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta property="og:type" content="website">
-<meta property="og:title" content="MashPlant的笔记">
-<meta property="og:url" content="https://mashplant.github.io/archives/2020/index.html">
+  <meta name="description" content="https:&#x2F;&#x2F;mashplant.online&#x2F;lalr1 炒一波冷饭，反正我也做不出什么新东西了。就是用图形或者文字展示一下各种分析表，状态机，下学期别人选编译原理的时候可以用来算作业答案吧。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="lalr1-frontend">
+<meta property="og:url" content="https://mashplant.github.io/2020/06/19/lalr1-frontend/index.html">
 <meta property="og:site_name" content="MashPlant的笔记">
+<meta property="og:description" content="https:&#x2F;&#x2F;mashplant.online&#x2F;lalr1 炒一波冷饭，反正我也做不出什么新东西了。就是用图形或者文字展示一下各种分析表，状态机，下学期别人选编译原理的时候可以用来算作业答案吧。">
+<meta property="article:published_time" content="2020-06-18T16:14:42.000Z">
+<meta property="article:modified_time" content="2020-06-18T16:20:13.452Z">
 <meta property="article:author" content="MashPlant">
+<meta property="article:tag" content="Rust">
+<meta property="article:tag" content="WebAssembly">
+<meta property="article:tag" content="Compiler">
 <meta name="twitter:card" content="summary">
 
-<link rel="canonical" href="https://mashplant.github.io/archives/2020/">
+<link rel="canonical" href="https://mashplant.github.io/2020/06/19/lalr1-frontend/">
 
 
 <script id="page-configurations">
@@ -35,12 +42,12 @@
   CONFIG.page = {
     sidebar: "",
     isHome : false,
-    isPost : false,
+    isPost : true,
     lang   : 'zh-Hans'
   };
 </script>
 
-  <title>Archive | MashPlant的笔记</title>
+  <title>lalr1-frontend | MashPlant的笔记</title>
   
 
 
@@ -149,176 +156,111 @@
         <div class="content-wrap">
           
 
-          <div class="content archive">
+          <div class="content post posts-expand">
             
 
+    
   
   
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://mashplant.github.io/2020/06/19/lalr1-frontend/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="MashPlant">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="MashPlant的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          lalr1-frontend
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+              
+
+              <time title="Created: 2020-06-19 00:14:42 / Modified: 00:20:13" itemprop="dateCreated datePublished" datetime="2020-06-19T00:14:42+08:00">2020-06-19</time>
+            </span>
+
+          
+            <span id="/2020/06/19/lalr1-frontend/" class="post-meta-item leancloud_visitors" data-flag-title="lalr1-frontend" title="Views">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
   
-  <div class="post-block">
-    <div class="posts-collapse">
-      <div class="collection-title">
-        <span class="collection-header">Um..! 7 posts in total. Keep on posting.</span>
-      </div>
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine: </span>
+    
+    <a title="valine" href="/2020/06/19/lalr1-frontend/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2020/06/19/lalr1-frontend/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
 
       
-    <div class="collection-year">
-      <span class="collection-header">2020</span>
-    </div>
-
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-
-      <div class="post-meta">
-        <time itemprop="dateCreated"
-              datetime="2020-06-19T00:14:42+08:00"
-              content="2020-06-19">
-          06-19
-        </time>
-      </div>
-
-      <div class="post-title">
-          <a class="post-title-link" href="/2020/06/19/lalr1-frontend/" itemprop="url">
-            <span itemprop="name">lalr1-frontend</span>
-          </a>
-      </div>
-
-    </header>
-  </article>
-
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-
-      <div class="post-meta">
-        <time itemprop="dateCreated"
-              datetime="2020-06-11T22:10:29+08:00"
-              content="2020-06-11">
-          06-11
-        </time>
-      </div>
-
-      <div class="post-title">
-          <a class="post-title-link" href="/2020/06/11/tomasulo-introduction-md/" itemprop="url">
-            <span itemprop="name">一个在线的Tomasulo模拟器</span>
-          </a>
-      </div>
-
-    </header>
-  </article>
-
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-
-      <div class="post-meta">
-        <time itemprop="dateCreated"
-              datetime="2020-06-07T11:47:22+08:00"
-              content="2020-06-07">
-          06-07
-        </time>
-      </div>
-
-      <div class="post-title">
-          <a class="post-title-link" href="/2020/06/07/2018-spring-summary-md/" itemprop="url">
-            <span itemprop="name">大一下总结</span>
-          </a>
-      </div>
-
-    </header>
-  </article>
-
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-
-      <div class="post-meta">
-        <time itemprop="dateCreated"
-              datetime="2020-06-04T21:24:00+08:00"
-              content="2020-06-04">
-          06-04
-        </time>
-      </div>
-
-      <div class="post-title">
-          <a class="post-title-link" href="/2020/06/04/2018-fall-summary-md/" itemprop="url">
-            <span itemprop="name">大二上总结</span>
-          </a>
-      </div>
-
-    </header>
-  </article>
-
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-
-      <div class="post-meta">
-        <time itemprop="dateCreated"
-              datetime="2020-06-04T12:48:24+08:00"
-              content="2020-06-04">
-          06-04
-        </time>
-      </div>
-
-      <div class="post-title">
-          <a class="post-title-link" href="/2020/06/04/2019-spring-summary-md/" itemprop="url">
-            <span itemprop="name">大二下总结</span>
-          </a>
-      </div>
-
-    </header>
-  </article>
-
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-
-      <div class="post-meta">
-        <time itemprop="dateCreated"
-              datetime="2020-06-04T09:56:39+08:00"
-              content="2020-06-04">
-          06-04
-        </time>
-      </div>
-
-      <div class="post-title">
-          <a class="post-title-link" href="/2020/06/04/2019-fall-summary-md/" itemprop="url">
-            <span itemprop="name">大三上总结</span>
-          </a>
-      </div>
-
-    </header>
-  </article>
-
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-
-      <div class="post-meta">
-        <time itemprop="dateCreated"
-              datetime="2020-05-30T12:35:15+08:00"
-              content="2020-05-30">
-          05-30
-        </time>
-      </div>
-
-      <div class="post-title">
-          <a class="post-title-link" href="/2020/05/30/optimize-wasm-bindgen/" itemprop="url">
-            <span itemprop="name">尝试优化wasm-bindgen生成的程序</span>
-          </a>
-      </div>
-
-    </header>
-  </article>
-
+        <p><a href="https://mashplant.online/lalr1" target="_blank" rel="noopener">https://mashplant.online/lalr1</a></p>
+<p>炒一波冷饭，反正我也做不出什么新东西了。就是用图形或者文字展示一下各种分析表，状态机，下学期别人选编译原理的时候可以用来算作业答案吧。</p>
 
     </div>
-  </div>
-  
-  
-  
 
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Rust/" rel="tag"># Rust</a>
+              <a href="/tags/WebAssembly/" rel="tag"># WebAssembly</a>
+              <a href="/tags/Compiler/" rel="tag"># Compiler</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/06/11/tomasulo-introduction-md/" rel="prev" title="一个在线的Tomasulo模拟器">
+      <i class="fa fa-chevron-left"></i> 一个在线的Tomasulo模拟器
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
   
 
 
 
           </div>
           
+    <div class="comments" id="valine-comments"></div>
 
 <script>
   window.addEventListener('tabs:register', () => {
