@@ -1,0 +1,42 @@
+digraph g {
+  0[shape=rect, label="S -> A B, 0..2"]
+  0 -> circle0
+  circle0[shape=circle, label="", width=0.2]
+  circle0 -> 1
+  circle0 -> 2
+  0 -> circle1
+  circle1[shape=circle, label="", width=0.2]
+  circle1 -> 1
+  circle1 -> 3
+  0 -> circle2
+  circle2[shape=circle, label="", width=0.2]
+  circle2 -> 4
+  circle2 -> 2
+  0 -> circle3
+  circle3[shape=circle, label="", width=0.2]
+  circle3 -> 4
+  circle3 -> 3
+  subgraph sub {
+    rank="same"
+    1 -> 4 -> 2 -> 3 [style=invis]
+    1[shape=rect, label="A -> A1, 0..1"]
+    2[shape=rect, label="B -> B1, 1..2"]
+    3[shape=rect, label="B -> B2, 1..2"]
+    4[shape=rect, label="A -> A2, 0..1"]
+  }
+  1 -> 5
+  2 -> 6
+  3 -> 7
+  4 -> 8
+  5[shape=rect, label="A1 -> a, 0..1"]
+  5 -> 9
+  6[shape=rect, label="B1 -> b, 1..2"]
+  6 -> 10
+  7[shape=rect, label="B2 -> b, 1..2"]
+  7 -> 10
+  8[shape=rect, label="A2 -> a, 0..1"]
+  8 -> 9
+  9[shape=circle, label="a"]
+  10[shape=circle, label="b"]
+}
+

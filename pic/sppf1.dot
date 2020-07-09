@@ -1,0 +1,6 @@
+digraph g {
+  0[shape=rect, label="A -> A, 0..0"]
+  0 -> 1
+  0 -> 0
+  1[shape=rect, label="A ->, 0..0"]
+}
