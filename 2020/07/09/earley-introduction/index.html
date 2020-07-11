@@ -29,7 +29,7 @@
 <meta property="og:image" content="https://mashplant.github.io/pic/sppf.png">
 <meta property="og:image" content="https://mashplant.github.io/pic/sppf1.png">
 <meta property="article:published_time" content="2020-07-09T00:58:18.000Z">
-<meta property="article:modified_time" content="2020-07-09T09:09:23.503Z">
+<meta property="article:modified_time" content="2020-07-09T09:12:39.956Z">
 <meta property="article:author" content="MashPlant">
 <meta property="article:tag" content="Rust">
 <meta property="article:tag" content="Compiler">
@@ -190,7 +190,7 @@
               <span class="post-meta-item-text">Posted on</span>
               
 
-              <time title="Created: 2020-07-09 08:58:18 / Modified: 17:09:23" itemprop="dateCreated datePublished" datetime="2020-07-09T08:58:18+08:00">2020-07-09</time>
+              <time title="Created: 2020-07-09 08:58:18 / Modified: 17:12:39" itemprop="dateCreated datePublished" datetime="2020-07-09T08:58:18+08:00">2020-07-09</time>
             </span>
 
           
@@ -290,7 +290,7 @@
 <h1 id="从SPPF到具体的树"><a href="#从SPPF到具体的树" class="headerlink" title="从SPPF到具体的树"></a>从SPPF到具体的树</h1><p>到这里基本就跟Earley算法没有关系了，不过也算是parser的一部分。这个也花了我挺长时间的，看起来是一个比较正常的需求，但是找了半天也没有发现已经存在的算法，只能自己想了。其实也不算太复杂，但是毕竟我水平有限，还是想了一段时间才想出来。</p>
 <p>首先想一个深搜的算法，搜索所有的树。这里有一个难点在于，每个节点往下可以有多个选择，每个选择中还有多个待搜索的节点，这就和简单的深搜不太一样了。主要还是要搞清楚访问节点的顺序是什么。以倒数第二张图为例，从<code>S -&gt; A B</code>开始，首先选择最左边的圆圈(圆圈并不是具体的节点，而是表示一组节点)，然后往下走，先看<code>A -&gt; A1</code>，需要搜索它的全部可能，比较幸运的是只有一个。继续往下走，到了<code>a</code>的时候停下，这个时候走完了这个分支，但是仍然没有为<code>S -&gt; A B</code>构造一棵具体的树，因为<code>B -&gt; B1</code>那一边还没有探索，所以需要能够从<code>a</code>这里跳到<code>B -&gt; B1</code>继续搜索。</p>
 <p>这个例子比较简单，但是也能看出来一点思路了：除了深搜的调用栈之外，还要再维护一个栈，每次选择一个产生式右端式子的一种可能时，只进入右端式子的第一项，而把剩余部分的信息保存到另一个栈中。当搜索进入一个叶子节点时，从这个栈中弹出一项，对它继续搜索；如果此时栈为空，即证明整个搜索已经完成。</p>
-<p>然后把深搜的版本改造成一个基于栈+状态机的版本，这并不是为了性能或者防止爆栈，而是希望能给用户提供一个更便捷的接口，能够像访问迭代器一样访问所有可能的树。而且考虑到树的总数可能是无限的，这个转化就更重要了，理论上就不能用深搜构造一个容器来保存所有的树再把容器返回给用户。其实我之前还想过使用Rust的Generator，另一篇文章<a href="http://localhost:4000/2020/07/07/rust-generator/" target="_blank" rel="noopener">试用Rust的Generator</a>其实就是为了这个写的，不过写完之后感觉现在的Generator还是不够成熟优雅，并不是很想用，还是自己转化成基于栈的版本吧。</p>
+<p>然后把深搜的版本改造成一个基于栈+状态机的版本，这并不是为了性能或者防止爆栈，而是希望能给用户提供一个更便捷的接口，能够像访问迭代器一样访问所有可能的树。而且考虑到树的总数可能是无限的，这个转化就更重要了，理论上就不能用深搜构造一个容器来保存所有的树再把容器返回给用户。其实我之前还想过使用Rust的Generator，另一篇文章<a href="https://mashplant.online/2020/07/07/rust-generator/" target="_blank" rel="noopener">试用Rust的Generator</a>其实就是为了这个写的，不过写完之后感觉现在的Generator还是不够成熟优雅，并不是很想用，还是自己转化成基于栈的版本吧。</p>
 <p>这个其实就是机械的工作了，我一直都知道这是可行的，不过也没有尝试过，这次终于手动操作了一回，完成了之后还优化了好久才达到自己比较满意的样子。现在用户可以像这样生成树了：</p>
 <figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">let</span> <span class="keyword">mut</span> it = sppf.iter();</span><br><span class="line"><span class="keyword">let</span> <span class="keyword">mut</span> cnt = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">while</span> <span class="keyword">let</span> <span class="literal">Some</span>(tree) = it.next() &#123;</span><br><span class="line">  std::fs::write(<span class="built_in">format!</span>(<span class="string">"&#123;&#125;.dot"</span>, cnt), <span class="built_in">format!</span>(<span class="string">"&#123;&#125;"</span>, tree)).unwrap();</span><br><span class="line">  cnt += <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
