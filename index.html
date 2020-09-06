@@ -156,6 +156,99 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://mashplant.github.io/2020/09/06/panic-in-wasm/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="MashPlant">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="MashPlant的笔记">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2020/09/06/panic-in-wasm/" class="post-title-link" itemprop="url">在wasm中尝试从panic中恢复</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2020-09-06 15:50:41" itemprop="dateCreated datePublished" datetime="2020-09-06T15:50:41+08:00">2020-09-06</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-09-07 01:40:26" itemprop="dateModified" datetime="2020-09-07T01:40:26+08:00">2020-09-07</time>
+              </span>
+
+          
+            <span id="/2020/09/06/panic-in-wasm/" class="post-meta-item leancloud_visitors" data-flag-title="在wasm中尝试从panic中恢复" title="Views">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine: </span>
+    
+    <a title="valine" href="/2020/09/06/panic-in-wasm/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2020/09/06/panic-in-wasm/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>最近花了一点时间给我的Rust版minidecaf写了一个前端展示，地址在<a href="https://mashplant.online/minidecaf-frontend/" target="_blank" rel="noopener">https://mashplant.online/minidecaf-frontend/</a>。写的时候遇到了一个问题：Rust编译到wasm时看起来没法用<code>catch_unwind</code>从panic中恢复。这里记录一下我为了解决这个问题所做的尝试，虽然只有一种方法成功解决了问题，但是过程还是有点记录的价值。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2020/09/06/panic-in-wasm/#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
     <link itemprop="mainEntityOfPage" href="https://mashplant.github.io/2020/08/17/lalr1-introduction/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -984,102 +1077,11 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
-    <link itemprop="mainEntityOfPage" href="https://mashplant.github.io/2020/05/30/optimize-wasm-bindgen/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="MashPlant">
-      <meta itemprop="description" content="">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="MashPlant的笔记">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2020/05/30/optimize-wasm-bindgen/" class="post-title-link" itemprop="url">尝试优化wasm-bindgen生成的程序</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">Posted on</span>
-
-              <time title="Created: 2020-05-30 12:35:15" itemprop="dateCreated datePublished" datetime="2020-05-30T12:35:15+08:00">2020-05-30</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2020-06-04 11:35:43" itemprop="dateModified" datetime="2020-06-04T11:35:43+08:00">2020-06-04</time>
-              </span>
-
-          
-            <span id="/2020/05/30/optimize-wasm-bindgen/" class="post-meta-item leancloud_visitors" data-flag-title="尝试优化wasm-bindgen生成的程序" title="Views">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-eye"></i>
-              </span>
-              <span class="post-meta-item-text">Views: </span>
-              <span class="leancloud-visitors-count"></span>
-            </span>
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Valine: </span>
-    
-    <a title="valine" href="/2020/05/30/optimize-wasm-bindgen/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2020/05/30/optimize-wasm-bindgen/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>最近刚刚入门Rust的WebAssembly工具链，写了一些很平凡的小程序，发现了一个<strong>很小</strong>的值得优化的点，即<code>wasm-bindgen</code>对用来封装单个基本类型变量的结构体的处理不够优化。</p>
-<p>你要问我做不做这个优化究竟有什么意义，我只能回答确实没什么太大意义，这几乎不太可能成为性能瓶颈，所以这篇文章主要目的其实只是记录一下我作为初学者探索<code>wasm-bindgen</code>的工作原理的过程。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2020/05/30/optimize-wasm-bindgen/#more" rel="contents">
-                Read more &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
+  <nav class="pagination">
+    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right" aria-label="Next page"></i></a>
+  </nav>
 
 
 
@@ -1144,7 +1146,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">10</span>
+          <span class="site-state-item-count">11</span>
           <span class="site-state-item-name">posts</span>
         </a>
       </div>
