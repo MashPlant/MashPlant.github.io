@@ -31,7 +31,7 @@
 <meta property="og:image" content="https://mashplant.github.io/pic/lalr1/conflict.png">
 <meta property="og:image" content="https://mashplant.github.io/pic/lalr1/%E6%B5%8B%E8%AF%95.png">
 <meta property="article:published_time" content="2020-08-17T08:38:05.000Z">
-<meta property="article:modified_time" content="2020-08-31T05:29:50.633Z">
+<meta property="article:modified_time" content="2020-09-14T03:05:32.209Z">
 <meta property="article:author" content="MashPlant">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="https://mashplant.github.io/pic/lalr1/dfa.png">
@@ -196,7 +196,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2020-08-31 13:29:50" itemprop="dateModified" datetime="2020-08-31T13:29:50+08:00">2020-08-31</time>
+                <time title="Modified: 2020-09-14 11:05:32" itemprop="dateModified" datetime="2020-09-14T11:05:32+08:00">2020-09-14</time>
               </span>
 
           
@@ -329,7 +329,10 @@
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">State 13:</span><br><span class="line">  Expr -&gt; Expr.Add Expr</span><br><span class="line">  Expr -&gt; Expr Add Expr.</span><br><span class="line">  Expr -&gt; Expr.Sub Expr</span><br><span class="line">  Expr -&gt; Expr.Mul Expr</span><br><span class="line">  Expr -&gt; Expr.Div Expr</span><br><span class="line">  Expr -&gt; Expr.Mod Expr</span><br><span class="line"></span><br><span class="line">  Mul &#x3D;&gt; Shift(9) (✓) # 遇到*时移进，因为*优先级比+高</span><br><span class="line">  Mul &#x3D;&gt; Reduce(0) (-)</span><br><span class="line">  RPar &#x3D;&gt; Reduce(0) (✓)</span><br><span class="line">  Div &#x3D;&gt; Shift(10) (✓) # 遇到&#x2F;时移进，因为&#x2F;优先级比+高</span><br><span class="line">  Div &#x3D;&gt; Reduce(0) (-)</span><br><span class="line">  Add &#x3D;&gt; Shift(7) (-)</span><br><span class="line">  Add &#x3D;&gt; Reduce(0) (✓) # 遇到+时规约，因为+左结合</span><br><span class="line">  Mod &#x3D;&gt; Shift(11) (✓) # 遇到%时移进，因为%优先级比+高</span><br><span class="line">  Mod &#x3D;&gt; Reduce(0) (-)</span><br><span class="line">  Sub &#x3D;&gt; Shift(8) (-)</span><br><span class="line">  Sub &#x3D;&gt; Reduce(0) (✓) # 遇到-时规约，因为+和-优先级一样高，而+左结合</span><br><span class="line">  _Eof &#x3D;&gt; Reduce(0) (✓)</span><br></pre></td></tr></table></figure>
 
 <p>可见这里所有冲突选择都被优先级和结合性的约束给消除了。</p>
-<h1 id="配置文件"><a href="#配置文件" class="headerlink" title="配置文件"></a>配置文件</h1><p>首先通过如下指令安装<code>parser_gen</code>，这个二进制程序就是负责读入TOML文件，输出指定的目标语言：</p>
+<h1 id="配置文件"><a href="#配置文件" class="headerlink" title="配置文件"></a>配置文件</h1><blockquote>
+<p>如果你选择使用过程宏来生成代码，那么这一节可以完全跳过。</p>
+</blockquote>
+<p>首先通过如下指令安装<code>parser_gen</code>，这个二进制程序就是负责读入TOML文件，输出指定的目标语言：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cargo install --git https:&#x2F;&#x2F;github.com&#x2F;MashPlant&#x2F;lalr1 --features&#x3D;&quot;clap toml&quot;</span><br></pre></td></tr></table></figure>
 
 <p>直接运行这个程序就可以得到帮助信息，因此这里不再介绍怎么使用它。</p>
