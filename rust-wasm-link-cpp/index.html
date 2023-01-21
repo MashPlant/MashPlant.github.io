@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mashplant.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"flat"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="一般的Rust程序中可以在build.rs中借助cc这个库链接C++代码，不过我在使用wasm后端并试图链接C++代码时遇到了一些问题，这里简单记录一下解决的过程。 最终代码位于github.com&#x2F;MashPlant&#x2F;ncmdump-rs&#x2F;tree&#x2F;wasm，演示网页位于mashplant.online&#x2F;ncmdump-rs&#x2F;。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="在Rust的wasm后端中链接C++">
+<meta property="og:url" content="https://mashplant.github.io/rust-wasm-link-cpp/index.html">
+<meta property="og:site_name" content="MashPlant的笔记">
+<meta property="og:description" content="一般的Rust程序中可以在build.rs中借助cc这个库链接C++代码，不过我在使用wasm后端并试图链接C++代码时遇到了一些问题，这里简单记录一下解决的过程。 最终代码位于github.com&#x2F;MashPlant&#x2F;ncmdump-rs&#x2F;tree&#x2F;wasm，演示网页位于mashplant.online&#x2F;ncmdump-rs&#x2F;。">
+<meta property="article:published_time" content="2020-10-29T13:45:04.000Z">
+<meta property="article:modified_time" content="2020-10-31T16:04:55.570Z">
+<meta property="article:author" content="MashPlant">
+<meta property="article:tag" content="Rust">
+<meta property="article:tag" content="WebAssembly">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://mashplant.github.io/rust-wasm-link-cpp/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-Hans'
+  };
+</script>
+
+  <title>在Rust的wasm后端中链接C++ | MashPlant的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="MashPlant的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">MashPlant的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">“你将孤单度过一生”</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://mashplant.github.io/rust-wasm-link-cpp/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="MashPlant">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="MashPlant的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          在Rust的wasm后端中链接C++
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2020-10-29 06:45:04" itemprop="dateCreated datePublished" datetime="2020-10-29T06:45:04-07:00">2020-10-29</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-10-31 09:04:55" itemprop="dateModified" datetime="2020-10-31T09:04:55-07:00">2020-10-31</time>
+              </span>
+
+          
+            <span id="/rust-wasm-link-cpp/" class="post-meta-item leancloud_visitors" data-flag-title="在Rust的wasm后端中链接C++" title="Views">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine: </span>
+    
+    <a title="valine" href="/rust-wasm-link-cpp/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/rust-wasm-link-cpp/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>一般的Rust程序中可以在<code>build.rs</code>中借助<a href="https://docs.rs/cc/" target="_blank" rel="noopener">cc</a>这个库链接C++代码，不过我在使用wasm后端并试图链接C++代码时遇到了一些问题，这里简单记录一下解决的过程。</p>
+<p>最终代码位于<a href="https://github.com/MashPlant/ncmdump-rs/tree/wasm" target="_blank" rel="noopener">github.com/MashPlant/ncmdump-rs/tree/wasm</a>，演示网页位于<a href="http://mashplant.online/ncmdump-rs/" target="_blank" rel="noopener">mashplant.online/ncmdump-rs/</a>。</p>
+<a id="more"></a>
+
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>网易云音乐设计了一个ncm格式，用来保存会员专属的音乐，这样可以做到手机客户端上会员有效期结束后不允许播放下载的会员音乐，别的音乐软件也不能识别它。ncm格式并不复杂，<a href="https://github.com/anonymous5l/ncmdump" target="_blank" rel="noopener">ncmdump</a>这个库实现了将它解密为mp3或者flac文件的算法，出于好奇我也照着它实现了一个，并且希望能够用wasm来运行这个算法。</p>
+<p>解密过程大致分为两步，第一步是将纯音乐的部分解密出来，涉及一些aes，base64的库，用Rust写起来非常方便；第二步是将ncm文件中包含的封面，作者等媒体信息添加到解密出来的音频文件上，这一步是借助C++库<a href="https://github.com/taglib/taglib" target="_blank" rel="noopener">taglib</a>实现的，如果要重新造一遍轮子应该会相当复杂。</p>
+<p>taglib提供了C API，也有一个相应的Rust binding的库，但是C API非常不完整，比如我需要给一段内存中的音频加上信息，C API就做不到，必须用C++ API来完成，C API只提供了给文件系统中的音频文件加上信息的接口。所以大致思路就是把taglib编译成一个wasm的库，然后写一个C++函数接受Rust传来的数据并使用taglib来生成加上信息的音频，用emscripten工具链编译这段C++代码，再把这个库和这段C++代码链接到最终的wasm文件中。</p>
+<h1 id="编译taglib"><a href="#编译taglib" class="headerlink" title="编译taglib"></a>编译taglib</h1><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ git <span class="built_in">clone</span> https://github.com/taglib/taglib</span><br><span class="line">$ <span class="built_in">cd</span> taglib &amp;&amp; mkdir build &amp;&amp; <span class="built_in">cd</span> build</span><br><span class="line">$ CC=emcc CXX=em++ AR=emar cmake ..</span><br><span class="line">$ make -j16</span><br></pre></td></tr></table></figure>
+
+<p><code>cmake</code>可能会报一个错：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">-- Check size of wchar_t</span><br><span class="line">-- Check size of wchar_t - done</span><br><span class="line">CMake Error at ConfigureChecks.cmake:23 (if):</span><br><span class="line">  if given arguments:</span><br><span class="line">    &quot;LESS&quot; &quot;2&quot;</span><br><span class="line">  Unknown arguments specified</span><br></pre></td></tr></table></figure>
+
+<p>意思应该是找不到<code>wchar_t</code>的大小，不过可以直接忽略掉这个检查，注释掉<code>ConfigureChecks.cmake</code>中的相关检查即可：</p>
+<figure class="highlight cmake"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># check_type_size("wchar_t" SIZEOF_WCHAR_T)</span></span><br><span class="line"><span class="comment"># if($&#123;SIZEOF_WCHAR_T&#125; LESS 2)</span></span><br><span class="line"><span class="comment">#   message(FATAL_ERROR "TagLib requires that wchar_t is sufficient to store a UTF-16 char.")</span></span><br><span class="line"><span class="comment"># endif()</span></span><br></pre></td></tr></table></figure>
+
+<p><code>make</code>生成了<code>build/taglib/libtag.a</code>，这就是我们需要的wasm库文件了，但是之后链接时会报错说它缺少index，让我们用ranlib加一个，所以这里就提前加好：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ emranlib ./taglib/libtag.a <span class="comment"># 假设仍在build文件夹中</span></span><br></pre></td></tr></table></figure>
+
+<h1 id="编译Rust程序"><a href="#编译Rust程序" class="headerlink" title="编译Rust程序"></a>编译Rust程序</h1><p>原理上，Rust这边从ncm文件中提取出音频文件和各种信息，把这些传递给C++，C++调用taglib得到加上信息的音频，再传回Rust。至于这些信息怎么安全地跨过FFI边界，不是这篇文章的重点。其实我实现时用了一些FFI不安全的结构体，但是我心里清楚它们的内存布局，理论上虽然没有保证，实际上应该不太可能出错。</p>
+<p>如果是编译在本机运行的程序，需要在本机安装<code>libtag1-dev</code>（以Ubuntu为例），这样就往系统include路径添加了必要的头文件，往系统library路径添加了必要的库，<code>build.rs</code>就很简单：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">fn</span> <span class="title">main</span></span>() &#123;</span><br><span class="line">  <span class="built_in">println!</span>(<span class="string">"cargo:rerun-if-changed=src/add_tag.cpp"</span>);</span><br><span class="line">  <span class="built_in">println!</span>(<span class="string">"cargo:rustc-flags=-l tag -l stdc++"</span>);</span><br><span class="line">  cc::Build::new().file(<span class="string">"src/add_tag.cpp"</span>).compile(<span class="string">"add_tag"</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// add_tag.cpp大致内容：</span></span><br><span class="line"><span class="comment">// #include &lt;taglib/attachedpictureframe.h&gt;</span></span><br><span class="line"><span class="comment">// #include &lt;taglib/fileref.h&gt;</span></span><br><span class="line"><span class="comment">// ...</span></span><br><span class="line"><span class="comment">// ByteVectorStream stream(ByteVector(data.data.ptr, data.data.len));</span></span><br><span class="line"><span class="comment">// MPEG::File *f1 = new MPEG::File(&amp;stream, ID3v2::FrameFactory::instance());</span></span><br><span class="line"><span class="comment">// ...</span></span><br></pre></td></tr></table></figure>
+
+<p>但是要编译到wasm后端，它的include路径和library路径中就没有这些东西了。</p>
+<p>先解决include的问题。taglib仓库中的头文件分布比较零散，要添加include搜索路径比较麻烦，可以利用<code>libtag1-dev</code>添加到系统include路径中的头文件目录<code>/usr/include/taglib</code>。直接用emcc编译时搜索不到它们，这是因为emcc的include搜索路径并不包括系统include路径，而是emscripten自己定义的一系列头文件的路径，需要手动指定系统include路径：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">fn</span> <span class="title">main</span></span>() &#123;</span><br><span class="line">  ...</span><br><span class="line">  cc::Build::new().file(<span class="string">"src/add_tag.cpp"</span>).include(<span class="string">"/usr/include"</span>).compile(<span class="string">"add_tag"</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>但是这会让类似<code>stdio.h</code>这样的文件也都在<code>/usr/include</code>中搜索，而不是使用emscripten自己定义的版本，emcc就没法编译了。解决方法是先把<code>add_tag.cpp</code>中<code>#include &lt;taglib/fileref.h&gt;</code>这样的语句中的<code>taglib/</code>去掉，然后<code>build.rs</code>中改成<code>.include(&quot;/usr/include/taglib&quot;)</code>。</p>
+<p>再解决library的问题。这里不再需要<code>-l stdc++</code>了，<code>-l tag</code>改为<code>-L&lt;taglib&gt;/build/taglib -l tag</code>，其中<code>&lt;taglib&gt;</code>是taglib仓库的路径。但是这样没有把emscripten的标准库链接进去，为了知道要链接哪些库，可以随便编译一个程序，看看链接器是怎么执行的：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># &lt;emsdk&gt;表示emsdk仓库的路径，&lt;emscripten&gt;表示&lt;emsdk&gt;/upstream/emscripten</span></span><br><span class="line">$ em++ test.cpp -o test.html -v</span><br><span class="line">...</span><br><span class="line"><span class="string">"&lt;emsdk&gt;/upstream/bin/wasm-ld"</span> ... -L&lt;emscripten&gt;/system/<span class="built_in">local</span>/lib -L&lt;emscripten&gt;/system/lib -L&lt;emscripten&gt;/cache/wasm &lt;emscripten&gt;/cache/wasm/libc.a ... &lt;emscripten&gt;/cache/wasm/libsockets.a ...</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>中间还省略了一些<code>.a</code>文件，虽然这些库应该不是都有必要，但是写上也没什么坏处，优化编译时会自动忽略掉没有用的库。最终的<code>build.rs</code>如下：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">fn</span> <span class="title">main</span></span>() &#123;</span><br><span class="line">  <span class="built_in">println!</span>(<span class="string">"cargo:rerun-if-changed=src/add_tag.cpp"</span>);</span><br><span class="line">  <span class="built_in">println!</span>(<span class="string">"cargo:rustc-flags=-L&lt;taglib&gt;/build/taglib -l tag -L&lt;emscripten&gt;/system/local/lib -L&lt;emscripten&gt;/system/lib -L&lt;emscripten&gt;/cache/wasm -l c -l compiler_rt -l c++-noexcept -l c++abi-noexcept -l dlmalloc -l pthread_stub -l c_rt_wasm -l sockets"</span>);</span><br><span class="line">  cc::Build::new().file(<span class="string">"src/add_tag.cpp"</span>).include(<span class="string">"/usr/include/taglib"</span>).compile(<span class="string">"add_tag"</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>现在就可以编译了：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ CC=emcc CXX=em++ AR=emar wasm-pack build --debug</span><br></pre></td></tr></table></figure>
+
+<p>按照预期在<code>pkg</code>文件夹中生成了wasm文件和一些js胶水文件。</p>
+<h1 id="修复链接错误"><a href="#修复链接错误" class="headerlink" title="修复链接错误"></a>修复链接错误</h1><p>按照教程（例如<a href="https://rustwasm.github.io/docs/book/game-of-life/introduction.html" target="_blank" rel="noopener">Tutorial: Conway’s Game of Life</a>）写一个简单的网页来使用这个wasm库，会出现这样的错误：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">$ npm run start</span><br><span class="line">...</span><br><span class="line">ERROR <span class="keyword">in</span> ../pkg/ncmdump_rs_bg.wasm</span><br><span class="line">Module not found: Error: Can<span class="string">'t resolve '</span>env<span class="string">' in '</span>/home/mashplant/Code/CLionProjects/ncmdump-rs-wasm/pkg<span class="string">'</span></span><br><span class="line"><span class="string"> @ ../pkg/ncmdump_rs_bg.wasm</span></span><br><span class="line"><span class="string"> @ ../pkg/ncmdump_rs.js</span></span><br><span class="line"><span class="string"> @ ./index.js</span></span><br><span class="line"><span class="string"> @ ./bootstrap.js</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">ERROR in ../pkg/ncmdump_rs_bg.wasm</span></span><br><span class="line"><span class="string">Module not found: Error: Can'</span>t resolve <span class="string">'wasi_snapshot_preview1'</span> <span class="keyword">in</span> <span class="string">'/home/mashplant/Code/CLionProjects/ncmdump-rs-wasm/pkg'</span></span><br><span class="line"> @ ../pkg/ncmdump_rs_bg.wasm</span><br><span class="line"> @ ../pkg/ncmdump_rs.js</span><br><span class="line"> @ ./index.js</span><br><span class="line"> @ ./bootstrap.js</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>普及一下wasm的基础知识：一个编译好的wasm文件不一定可以直接运行，它可以从外界import函数，在初始化wasm模块时必须给它提供这些函数（这个过程就是“链接”）。可以用<a href="https://github.com/WebAssembly/wabt" target="_blank" rel="noopener">wabt</a>中的wasm2wat工具来查看具体import了哪些函数：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ wasm2wat ncmdump_rs_bg.wasm</span><br><span class="line">...</span><br><span class="line">(import &quot;env&quot; &quot;emscripten_memcpy_big&quot; (func $emscripten_memcpy_big (type 9)))</span><br><span class="line">(import &quot;env&quot; &quot;abort&quot; (func $abort (type 0)))</span><br><span class="line">(import &quot;env&quot; &quot;emscripten_resize_heap&quot; (func $emscripten_resize_heap (type 4)))</span><br><span class="line">(import &quot;env&quot; &quot;__cxa_atexit&quot; (func $__cxa_atexit (type 9)))</span><br><span class="line">(import &quot;wasi_snapshot_preview1&quot; &quot;environ_sizes_get&quot; (func $__wasi_environ_sizes_get (type 7)))</span><br><span class="line">(import &quot;wasi_snapshot_preview1&quot; &quot;environ_get&quot; (func $__wasi_environ_get (type 7)))</span><br><span class="line">(import &quot;env&quot; &quot;__cxa_allocate_exception&quot; (func $__cxa_allocate_exception (type 4)))</span><br><span class="line">(import &quot;env&quot; &quot;__cxa_throw&quot; (func $__cxa_throw (type 8)))</span><br><span class="line">(import &quot;.&#x2F;ncmdump_rs_bg.js&quot; &quot;__wbindgen_throw&quot; (func $wasm_bindgen::__wbindgen_throw::ha3eb5828fbe1e793 (type 6)))</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>从<code>env</code>中import了<code>emscripten_memcpy_big</code>，<code>__cxa_throw</code>等，从<code>wasi_snapshot_preview1</code>中import了<code>environ_sizes_get</code>和<code>environ_get</code>，从<code>./ncmdump_rs_bg.js</code>中import了<code>__wbindgen_throw</code>。最后这个函数在<code>pkg</code>中初始化时会提供，而前两组函数，如果使用emscripten工具链，它生成的js胶水文件中初始化时会提供这些函数，但Rust的wasm工具链生成的胶水文件不会。</p>
+<p>考虑这些函数的语义，应该只有<code>emscripten_memcpy_big</code>和<code>emscripten_resize_heap</code>是需要实现的。其他的函数应该都用不到（<code>__cxa_atexit</code>是注册函数在程序结束时执行；<code>environ_sizes_get</code>，<code>environ_get</code>与环境变量有关；<code>abort</code>, <code>__cxa_allocate_exception</code>, <code>__cxa_throw</code>，<code>__wbindgen_throw</code>都与异常或程序中止有关），输出一句记录一下。</p>
+<p>执行<code>em++ test.cpp -s ALLOW_MEMORY_GROWTH=1</code>（开启<code>ALLOW_MEMORY_GROWTH</code>时才有<code>emscripten_resize_heap</code>的实现），看看生成的胶水文件中的<code>emscripten_memcpy_big</code>和<code>emscripten_resize_heap</code>的功能：</p>
+<ul>
+<li><code>emscripten_memcpy_big(dest, src, num)</code>：相当于<code>memcpy(dest, src, num)</code>，<code>dest</code>和<code>src</code>都是整数，把wasm的内存看成<code>u8</code>数组，它们就是数组下标</li>
+<li><code>emscripten_resize_heap(request)</code>：调整内存的大小，要求至少包含<code>request</code>个字节，返回布尔值表示是否成功</li>
+</ul>
+<p>wasm模块export了一个memory变量，类型是<a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/Memory" target="_blank" rel="noopener">WebAssembly.Memory</a>，依据文档和胶水文件中的实现很容易写出上面两个函数的实现。其实直接复制胶水文件中的实现也是可以的，不过我觉得它的<code>emscripten_resize_heap</code>太长了，自己写了一个更简单的。</p>
+<p><code>pkg</code>中用的是<code>import</code>的方式来初始化wasm模块，我不熟悉js，不知道应该怎么把它改成<code>WebAssembly.instantiate</code>那一套，同时还能把wasm中的函数export出去。所以我选择把这个wasm文件拷贝到npm项目下，然后直接调用<code>WebAssembly.instantiate</code>，不依赖<code>pkg</code>中的胶水文件：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">let</span> wasm;</span><br><span class="line"><span class="keyword">let</span> cacheHeap8 = <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 从pkg中的胶水文件复制来的，把内存当做u8数组使用</span></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">HEAP8</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (cacheHeap8 === <span class="literal">null</span> || cacheHeap8.buffer !== wasm.memory.buffer) &#123;</span><br><span class="line">    cacheHeap8 = <span class="keyword">new</span> <span class="built_in">Uint8Array</span>(wasm.memory.buffer);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> cacheHeap8;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">WebAssembly.instantiateStreaming(fetch(<span class="string">'./ncmdump_rs_bg.wasm'</span>), &#123;</span><br><span class="line">  env: &#123;</span><br><span class="line">    <span class="comment">// 不能写成emscripten_memcpy_big: (dest, src, num) =&gt; HEAP8().copyWithin(dest, src, src + num),</span></span><br><span class="line">    <span class="comment">// 因为Uint8Array.copyWithin()会返回这个数组本身，如果是一般的js程序也没有关系，因为只是返回一个引用</span></span><br><span class="line">    <span class="comment">// 但是经实验如果在wasm模块import的函数中返回一个数组，数组会被拷贝一份放进wasm的内存，效率会非常低下。</span></span><br><span class="line">    emscripten_memcpy_big: <span class="function">(<span class="params">dest, src, num</span>) =&gt;</span> &#123; HEAP8().copyWithin(dest, src, src + num); &#125;</span><br><span class="line">    emscripten_resize_heap: <span class="function">(<span class="params">request</span>) =&gt;</span> &#123;</span><br><span class="line">      <span class="keyword">let</span> old = HEAP8().length;</span><br><span class="line">      <span class="keyword">if</span> (request &gt; old) &#123;</span><br><span class="line">        <span class="comment">// WebAssembly.Memory.grow(delta)中的delta不是字节数，而是内存页数，根据规范wasm中页大小为64KB</span></span><br><span class="line">        <span class="comment">// 增长到能容纳2 * request个字节，并且至少增长1页</span></span><br><span class="line">        wasm.memory.grow(((<span class="number">2</span> * request - old) &gt;&gt;&gt; <span class="number">16</span>) + <span class="number">1</span>);</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;,</span><br><span class="line">    __cxa_atexit: <span class="function"><span class="params">()</span> =&gt;</span> <span class="built_in">console</span>.log(<span class="string">'__cxa_atexit'</span>),</span><br><span class="line">    abort: <span class="function"><span class="params">()</span> =&gt;</span> <span class="built_in">console</span>.log(<span class="string">'abort'</span>),</span><br><span class="line">    __cxa_allocate_exception: <span class="function"><span class="params">()</span> =&gt;</span> <span class="built_in">console</span>.log(<span class="string">'__cxa_allocate_exception'</span>),</span><br><span class="line">    __cxa_throw: <span class="function"><span class="params">()</span> =&gt;</span> <span class="built_in">console</span>.log(<span class="string">'__cxa_throw'</span>),</span><br><span class="line">  &#125;,</span><br><span class="line">  <span class="string">'./ncmdump_rs_bg.js'</span>: &#123;</span><br><span class="line">    __wbindgen_throw: <span class="function"><span class="params">()</span> =&gt;</span> <span class="built_in">console</span>.log(<span class="string">'__wbindgen_throw'</span>),</span><br><span class="line">  &#125;,</span><br><span class="line">  wasi_snapshot_preview1: &#123;</span><br><span class="line">    environ_sizes_get: <span class="function"><span class="params">()</span> =&gt;</span> <span class="built_in">console</span>.log(<span class="string">'environ_sizes_get'</span>),</span><br><span class="line">    environ_get: <span class="function"><span class="params">()</span> =&gt;</span> <span class="built_in">console</span>.log(<span class="string">'environ_get'</span>),</span><br><span class="line">  &#125;</span><br><span class="line">&#125;).then(<span class="function"><span class="params">obj</span> =&gt;</span> &#123;</span><br><span class="line">  wasm = obj.instance.exports;</span><br><span class="line">  <span class="comment">// 调用wasm中的函数...</span></span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+
+<h1 id="修复运行错误"><a href="#修复运行错误" class="headerlink" title="修复运行错误"></a>修复运行错误</h1><p>到此wasm模块就可以正确地初始化了，但是调用其中的函数时仍然可能会遇到运行错误。</p>
+<p>一个错误是这样的：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">Uncaught (in promise) RuntimeError: function signature mismatch</span><br><span class="line">    at _ZNK6TagLib5ID3v212FrameFactory11createFrameERKNS_10ByteVectorEPKNS0_6HeaderE (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[31]:0x26c8d)</span><br><span class="line">    at _ZNK6TagLib5ID3v212FrameFactory11createFrameERKNS_10ByteVectorEPNS0_6HeaderE (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[2119]:0x886f7)</span><br><span class="line">    at _ZN6TagLib5ID3v23Tag5parseERKNS_10ByteVectorE (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[217]:0x52182)</span><br><span class="line">    at _ZN6TagLib5ID3v23Tag4readEv (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[278]:0x57f43)</span><br><span class="line">    at _ZN6TagLib5ID3v23TagC2EPNS_4FileElPKNS0_12FrameFactoryE (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[592]:0x6b9dc)</span><br><span class="line">    at _ZN6TagLib4MPEG4File4readEb (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[235]:0x53eba)</span><br><span class="line">    at _ZN6TagLib4MPEG4FileC2EPNS_8IOStreamEPNS_5ID3v212FrameFactoryEbNS_15AudioProperties9ReadStyleE (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[1053]:0x7aaf0)</span><br><span class="line">    # demangle后即TagLib::MPEG::File::File(TagLib::IOStream*, TagLib::ID3v2::FrameFactory*, bool, TagLib::AudioProperties::ReadStyle)</span><br><span class="line">    at add_tag (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[62]:0x356bf)</span><br><span class="line">    at ncmdump_rs::transform::hcdc5151f7ab9b5f0 (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[11]:0x10f30)</span><br><span class="line">    at ncmdump_rs::work::h156846be72f8a579 (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[429]:0x6306e)</span><br></pre></td></tr></table></figure>
+
+<p>这个错误真是折磨了我很久，一点头绪也没有。错误栈中最底层的taglib中的函数基本就是<code>add_tag.cpp</code>中的第二句话，所以完全想不出来问题出在哪里。后来想到做点对比实验，用一样的输入数据调用这个函数，但是用emscripten工具链来编译，结果就能正常运行。用<code>wasm2wat</code>查看它的wasm，偶然看到这样一个函数：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">(export &quot;__wasm_call_ctors&quot; (func $__wasm_call_ctors))</span><br><span class="line">...</span><br><span class="line">(func $__wasm_call_ctors (type 0)</span><br><span class="line">  call $__emscripten_environ_constructor</span><br><span class="line">  call $_GLOBAL__sub_I_tstring.cpp</span><br><span class="line">  call $_GLOBAL__sub_I_tbytevector.cpp</span><br><span class="line">  call $_GLOBAL__sub_I_asffile.cpp</span><br><span class="line">  call $_GLOBAL__sub_I_id3v2frame.cpp</span><br><span class="line">  call $_GLOBAL__sub_I_id3v2framefactory.cpp)</span><br></pre></td></tr></table></figure>
+
+<p>应该是在初始化全局变量，翻了翻taglib的源码，确实定义了一些需要调用构造函数的全局变量，但是我的代码中没有任何地方执行了这个初始化的过程。</p>
+<p>用<code>wasm2wat</code>查看cargo编译出来的wasm，发现根本没有<code>__wasm_call_ctors</code>。这应该是因为没有导出它，也没有任何其他函数调用它，链接时就被优化掉了，所以需要给rustc提供参数让它导出<code>__wasm_call_ctors</code>。参考<a href="https://stackoverflow.com/questions/50642574/how-can-i-specify-linker-flags-arguments-in-a-build-script" target="_blank" rel="noopener">How can I specify linker flags/arguments in a build script?
+</a>，创建<code>.cargo/config</code>：</p>
+<figure class="highlight toml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 注意`--export`和`__wasm_call_ctors`不能写在一行，因为它们必须作为两个参数分别传给rustc</span></span><br><span class="line"><span class="section">[build]</span></span><br><span class="line"><span class="attr">rustflags</span> = [</span><br><span class="line">  <span class="string">"-C"</span>, <span class="string">"link-arg=--export"</span>,</span><br><span class="line">  <span class="string">"-C"</span>, <span class="string">"link-arg=__wasm_call_ctors"</span>,</span><br><span class="line">]</span><br></pre></td></tr></table></figure>
+
+<p>在得到wasm模块后手动调用这个函数即可：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">&#125;).then(<span class="function"><span class="params">obj</span> =&gt;</span> &#123;</span><br><span class="line">  wasm = obj.instance.exports;</span><br><span class="line">  wasm.__wasm_call_ctors();</span><br><span class="line">  <span class="comment">// 调用wasm中的函数...</span></span><br><span class="line">&#125;);</span><br></pre></td></tr></table></figure>
+
+<p>另一个错误是这样的：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">Uncaught (in promise) RuntimeError: memory access out of bounds</span><br><span class="line">    at dlmalloc::dlmalloc::Dlmalloc::realloc::h430fa370263f868f (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[127]:0x467d9)</span><br><span class="line">    at __rdl_realloc (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[984]:0x7a484)</span><br><span class="line">    at __rust_realloc (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[1959]:0x8924f)</span><br><span class="line">    at alloc::alloc::realloc::hb47e55c361cc3873 (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[959]:0x799e2)</span><br><span class="line">    at &lt;alloc::alloc::Global as core::alloc::AllocRef&gt;::grow::h197f5bad8094e7c6 (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[142]:0x490be)</span><br><span class="line">    at alloc::raw_vec::finish_grow::hf66aa09834bcc688 (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[92]:0x3f3a4)</span><br><span class="line">    at alloc::raw_vec::RawVec&lt;T,A&gt;::grow_amortized::h11902a88edb24012 (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[106]:0x427c4)</span><br><span class="line">    at alloc::raw_vec::RawVec&lt;T,A&gt;::try_reserve::ha5b7f89b8444ce9a (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[883]:0x778e6)</span><br><span class="line">    at alloc::raw_vec::RawVec&lt;T,A&gt;::reserve::hbc956c8a4b8cd696 (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[624]:0x6e4c3)</span><br><span class="line">    at alloc::vec::Vec&lt;T&gt;::reserve::hbf6dbd4f147dde00 (http:&#x2F;&#x2F;localhost:8080&#x2F;ncmdump_rs_bg.wasm:wasm-function[1299]:0x8115c)</span><br></pre></td></tr></table></figure>
+
+<p>看起来应该是Rust中申请内存时出错了，我猜测是因为同时存在两个内存分配器，Rust和C++中各有一个，它们都认为自己是独占堆空间的，所以可能会覆盖对方的元信息，导致出错。解决方法就是去掉其中一个，用另一个来代替它。比如去掉Rust中的，直接用<code>malloc</code>这一套申请内存：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">use</span> std::alloc::&#123;GlobalAlloc, Layout&#125;;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">Malloc</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">extern</span> <span class="string">"C"</span> &#123;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">malloc</span></span>(size: <span class="built_in">usize</span>) -&gt; *<span class="keyword">mut</span> <span class="built_in">u8</span>;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">free</span></span>(ptr: *<span class="keyword">mut</span> <span class="built_in">u8</span>);</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">realloc</span></span>(ptr: *<span class="keyword">mut</span> <span class="built_in">u8</span>, size: <span class="built_in">usize</span>) -&gt; *<span class="keyword">mut</span> <span class="built_in">u8</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 这里直接忽略了align的要求，不过应该没有什么大问题，我的应用应该只要求4字节对齐，malloc可以保证</span></span><br><span class="line"><span class="keyword">unsafe</span> <span class="keyword">impl</span> GlobalAlloc <span class="keyword">for</span> Malloc &#123;</span><br><span class="line">  <span class="keyword">unsafe</span> <span class="function"><span class="keyword">fn</span> <span class="title">alloc</span></span>(&amp;<span class="keyword">self</span>, layout: Layout) -&gt; *<span class="keyword">mut</span> <span class="built_in">u8</span> &#123; malloc(layout.size()) &#125;</span><br><span class="line">  <span class="keyword">unsafe</span> <span class="function"><span class="keyword">fn</span> <span class="title">dealloc</span></span>(&amp;<span class="keyword">self</span>, ptr: *<span class="keyword">mut</span> <span class="built_in">u8</span>, _layout: Layout) &#123; free(ptr); &#125;</span><br><span class="line">  <span class="keyword">unsafe</span> <span class="function"><span class="keyword">fn</span> <span class="title">realloc</span></span>(&amp;<span class="keyword">self</span>, ptr: *<span class="keyword">mut</span> <span class="built_in">u8</span>, _layout: Layout, new_size: <span class="built_in">usize</span>) -&gt; *<span class="keyword">mut</span> <span class="built_in">u8</span> &#123; realloc(ptr, new_size) &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#[global_allocator]</span></span><br><span class="line"><span class="keyword">static</span> A: Malloc = Malloc;</span><br></pre></td></tr></table></figure>
+
+<p>去掉C++中的也可以，但是麻烦一些。首先<code>build.rs</code>中不再链接<code>libdlmalloc.a</code>，即去掉<code>-l dlmalloc</code>，这样wasm文件会从<code>env</code>中多import三个函数：<code>malloc</code>，<code>realloc</code>和<code>free</code>。wasm模块中还export了<code>__wbindgen_malloc</code>和<code>__wbindgen_free</code>两个函数，这是Rust那边实现的，可以用它们来实现<code>malloc</code>，<code>realloc</code>和<code>free</code>，但会有一点困难，因为<code>__wbindgen_free</code>需要传指针和长度作参数，而<code>free</code>只有一个指针参数，可能需要手动在内存中维护这种信息<del>，当然也可以直接把<code>free</code>实现成空操作</del>。</p>
+<p>到此所有问题都解决了。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Rust/" rel="tag"># Rust</a>
+              <a href="/tags/WebAssembly/" rel="tag"># WebAssembly</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/panic-in-wasm/" rel="prev" title="在wasm中尝试从panic中恢复">
+      <i class="fa fa-chevron-left"></i> 在wasm中尝试从panic中恢复
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2020-fall-application-summary/" rel="next" title="大四上及申请总结">
+      大四上及申请总结 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#背景"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#编译taglib"><span class="nav-number">2.</span> <span class="nav-text">编译taglib</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#编译Rust程序"><span class="nav-number">3.</span> <span class="nav-text">编译Rust程序</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#修复链接错误"><span class="nav-number">4.</span> <span class="nav-text">修复链接错误</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#修复运行错误"><span class="nav-number">5.</span> <span class="nav-text">修复运行错误</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">MashPlant</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">18</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/MashPlant" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;MashPlant" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-rss fa-fw"></i>RSS</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">MashPlant</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a>
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'X7kE28uGIr8V7x8FaNWY71aY-gzGzoHsz',
+      appKey     : 'HdX9HsV0O0wHWAaEUurLSoTN',
+      placeholder: "发表你的评论",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : '' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

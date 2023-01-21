@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mashplant.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"flat"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Earley算法，是一个parser，所以它的功能也不用我多说了。我第一次接触到它是在看rustc-dev-guide中的macro-expansion这一章时，得知Rust中宏调用的解析是基于Earley算法的。 我自己尝试实现了一下Earley算法，代码：https:&#x2F;&#x2F;github.com&#x2F;MashPlant&#x2F;earley。前端演示：https:&#x2F;&#x2F;mashplant.online&#x2F;earl">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Earley算法和实现">
+<meta property="og:url" content="https://mashplant.github.io/earley-introduction/index.html">
+<meta property="og:site_name" content="MashPlant的笔记">
+<meta property="og:description" content="Earley算法，是一个parser，所以它的功能也不用我多说了。我第一次接触到它是在看rustc-dev-guide中的macro-expansion这一章时，得知Rust中宏调用的解析是基于Earley算法的。 我自己尝试实现了一下Earley算法，代码：https:&#x2F;&#x2F;github.com&#x2F;MashPlant&#x2F;earley。前端演示：https:&#x2F;&#x2F;mashplant.online&#x2F;earl">
+<meta property="og:image" content="https://mashplant.github.io/pic/sppf.png">
+<meta property="og:image" content="https://mashplant.github.io/pic/sppf1.png">
+<meta property="article:published_time" content="2020-07-09T00:58:18.000Z">
+<meta property="article:modified_time" content="2020-07-09T09:12:39.956Z">
+<meta property="article:author" content="MashPlant">
+<meta property="article:tag" content="Rust">
+<meta property="article:tag" content="Compiler">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://mashplant.github.io/pic/sppf.png">
+
+<link rel="canonical" href="https://mashplant.github.io/earley-introduction/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-Hans'
+  };
+</script>
+
+  <title>Earley算法和实现 | MashPlant的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="MashPlant的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">MashPlant的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">“你将孤单度过一生”</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://mashplant.github.io/earley-introduction/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="MashPlant">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="MashPlant的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Earley算法和实现
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2020-07-08 17:58:18" itemprop="dateCreated datePublished" datetime="2020-07-08T17:58:18-07:00">2020-07-08</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-07-09 02:12:39" itemprop="dateModified" datetime="2020-07-09T02:12:39-07:00">2020-07-09</time>
+              </span>
+
+          
+            <span id="/earley-introduction/" class="post-meta-item leancloud_visitors" data-flag-title="Earley算法和实现" title="Views">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine: </span>
+    
+    <a title="valine" href="/earley-introduction/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/earley-introduction/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>Earley算法，是一个parser，所以它的功能也不用我多说了。我第一次接触到它是在看rustc-dev-guide中的<a href="https://rustc-dev-guide.rust-lang.org/macro-expansion.html" target="_blank" rel="noopener">macro-expansion</a>这一章时，得知Rust中宏调用的解析是基于Earley算法的。</p>
+<p>我自己尝试实现了一下Earley算法，代码：<a href="https://github.com/MashPlant/earley" target="_blank" rel="noopener">https://github.com/MashPlant/earley</a>。前端演示：<a href="https://mashplant.online/earley/" target="_blank" rel="noopener">https://mashplant.online/earley/</a></p>
+<a id="more"></a>
+
+<h1 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h1><p>算法的基本信息在<a href="https://en.wikipedia.org/wiki/Earley_parser" target="_blank" rel="noopener">wiki</a>上面都有，我这里就简单复述一下。</p>
+<p>Earley算法可以解析<strong>任何</strong>CFG，就像我们自动机课上学的CYK算法一样。Earley parser对于确定性不同的CFG时间复杂度不同，一般情况下是输入长度的立方(这与CYK算法是一致的)，对于无歧义的CFG是平方，对于确定性的(即是某终态接受DPDA的语言，也即是LR(n)语言)CFG是线性。</p>
+<p>wiki上面介绍了Earley recognizer的实现，recognizer和parser的区别在于前者只是判断一个输入串是否属于给定的语言，而后者还要解析出输入串的语法树。有一句话让我很不满意：</p>
+<blockquote>
+<p>The recogniser can be easily modified to create a parse tree as it recognises, and in that way can be turned into a parser.</p>
+</blockquote>
+<p>实际上从我的实现来看，把recognizer拓展成parser占据了绝大多数时间和代码量。Jay Earley最初的论文<a href="http://reports-archive.adm.cs.cmu.edu/anon/scan/CMU-CS-68-earley.pdf" target="_blank" rel="noopener">An Efficient Context-Free Parsing Algorithm</a>(这个太长了，我没读过)中提出的把recognizer拓展成parser的方法被指出是有错误的，现在比较正统的方法应该是论文<a href="http://dinhe.net/~aredridel/.notmine/PDFs/Parsing/SCOTT,%20Elizabeth%20-%20SPPF-Style%20Parsing%20From%20Earley%20Recognizers.pdf" target="_blank" rel="noopener">SPPF-Style Parsing From Earley Recognisers</a>中提出的，可惜的是我读了一会，感觉读不懂。</p>
+<p>最终我的实现基本上都是参照于<a href="http://loup-vaillant.fr/tutorials/earley-parsing/" target="_blank" rel="noopener">http://loup-vaillant.fr/tutorials/earley-parsing/</a>。感觉这个人的文章写的相当不错，能看出他理解的很深刻，风格也算清晰易懂，应该是比我写的好多了，推荐大家去读一下。</p>
+<h1 id="Earley-recognizer"><a href="#Earley-recognizer" class="headerlink" title="Earley recognizer"></a>Earley recognizer</h1><p>首先定义Earley item：一个LR(0) item和一个整数的元组，当然也可以看成一个产生式，两个整数的三元组。其中的LR(0) item与LR算法中的意义一致，产生式表示正在解析的产生式，点的位置表示左边的串已经完成解析；还有一个整数，它表示这个产生式是从输入串的这个下标处开始解析的。一个Earley item表示如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(X -&gt; α • β, start)</span><br></pre></td></tr></table></figure>
+
+<p>设输入串的下标<strong>从0开始</strong>，输入串的长度是<code>N</code>，为<code>[0, N]</code>每个位置维护一个Earley item的集合，用<code>S[i]</code>表示。<code>S[i]</code>的含义是完成读入了输入串的<code>[0, i)</code>后发现的所有Earley items。<code>S[i]</code>中一个上面那样的Earley item表示的意思就是，正在尝试把输入串的<code>[start, i)</code>这一段解析成<code>X</code>，已经解析了其中的<code>α</code>部分。</p>
+<p>算法的核心就是执行一个类似DP的过程，这个伪代码长的有点像Rust，具体语义不难想象：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">S = [&#123;&#125;; N + <span class="number">1</span>]</span><br><span class="line"><span class="comment">// 将`S[0]`初始化成所有`(Start -&gt; • γ, 0)`的集合，Start是初始非终结符，即想要解析的非终结符</span></span><br><span class="line"><span class="comment">// 表示从0开始解析Start，目前还什么都没有解析</span></span><br><span class="line"><span class="keyword">for</span> (Start -&gt; γ) <span class="keyword">in</span> grammar &#123;</span><br><span class="line">  S[<span class="number">0</span>].add((Start -&gt; • γ, <span class="number">0</span>))</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> <span class="number">0</span>..=N &#123;</span><br><span class="line">  t = input.get(i) <span class="comment">// get对于越界的i(当i = N时)返回None</span></span><br><span class="line">  <span class="keyword">for</span> item <span class="keyword">in</span> S[i] &#123;</span><br><span class="line">    <span class="keyword">match</span> item &#123;</span><br><span class="line">      <span class="comment">// 点后是非终结符，predicate规则</span></span><br><span class="line">      <span class="comment">// 对于语法中所有形如B -&gt; γ的产生式，将(B -&gt; • γ, i) (表示从i开始尝试解析B，目前还什么都没有解析)加入S[i]</span></span><br><span class="line">      (A -&gt; α • B β, _) =&gt; <span class="keyword">for</span> (B -&gt; γ) <span class="keyword">in</span> grammar &#123; S[i].add((B -&gt; • γ, i)) &#125;</span><br><span class="line">      <span class="comment">// 点后是终结符，scan规则</span></span><br><span class="line">      <span class="comment">// 如果输入的对应位置和这个终结符匹配，将(A -&gt; α b • β, x) (即将点往后移动一位)</span></span><br><span class="line">      (A -&gt; α • b β, x) <span class="keyword">if</span> t == <span class="literal">Some</span>(b) =&gt; S[i + <span class="number">1</span>].add((A -&gt; α b • β, x)),</span><br><span class="line">      <span class="comment">// 点后没有内容，complete规则</span></span><br><span class="line">      <span class="comment">// 已知从x到i成功解析了A，那么对于所有从y到x的部分解析结果，可以把x到i这一段接到后面</span></span><br><span class="line">      <span class="comment">// 对于S[x]中所有形如(B -&gt; α • A β, y)的项，即尝试把y到x解析成B，已经解析了其中的α部分，接下来要解析A</span></span><br><span class="line">      <span class="comment">// 把(B -&gt; α A • β, y)加入S[i]，表示尝试把y到i解析成B，已经解析了其中的α A部分</span></span><br><span class="line">      (A -&gt; γ •, x) =&gt; <span class="keyword">for</span> (B -&gt; α • A β, y) <span class="keyword">in</span> S[x] &#123; S[i].add((B -&gt; α A • β, y)) &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>最终如果<code>S[N]</code>中存在<code>(Start -&gt; γ •, 0)</code>的话，就意味着整个输入串可以解析成<code>γ</code>，也就可以解析成<code>Start</code>，这个串被接受。反之则不接受。</p>
+<p>看着这个代码，如果你熟悉Rust的话，肯定能反应过来一个问题：这样会出现迭代的过程中修改集合的操作，在Rust里肯定是不能通过编译的。Rust只是把这个问题暴露出来了，用别的语言的话也会遇到逻辑上的问题，例如我在执行<code>S[i].add</code>后，这个新加入的项后面迭代的时候会不会遇到？还有可能新加入的项满足之前的某个规则(注意complete规则中<code>i</code>可能等于<code>x</code>，所以有可能先执行了complete规则，之后才把一个这样的项加入<code>S[i]</code>)，这样要不要重新考虑一遍之前执行的规则？</p>
+<p>对于第一个问题，答案是<code>for item in S[i]</code>这个<code>for</code>会考虑后续加入的项，<code>for (B -&gt; α • A β, y) in S[x]</code>这个<code>for</code>不考虑后续加入的项。迭代的过程用下标而非迭代器来写大概是这样的：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; S[i].len(); ++j) &#123; <span class="comment">// 每次len()都要重新读取</span></span><br><span class="line">  item = S[i][j]</span><br><span class="line">  <span class="comment">// 这里的操作会增加S[i].len()</span></span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line">  <span class="comment">// for (B -&gt; α • A β, y) in S[x]改写成</span></span><br><span class="line">  <span class="keyword">for</span> (k = <span class="number">0</span>, len = S[x].len(); k &lt; len; ++k) &#123; <span class="comment">// 即使len变化，也不再考虑新加入的项了</span></span><br><span class="line">    <span class="comment">// i == x时这里会增加S[x].len()</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>对于第二个问题，答案是原始的Earley算法不考虑，同时这也引入了下面的问题。</p>
+<h1 id="空规则"><a href="#空规则" class="headerlink" title="空规则"></a>空规则</h1><p>原始的Earley算法在处理存在可空的非终结符的语言时，可能会得到<strong>错误</strong>的结果。例如语言：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">S -&gt; A A</span><br><span class="line">A -&gt;</span><br></pre></td></tr></table></figure>
+
+<p>设开始符号是<code>S</code>，显然空串是这个语言的串。但是运行一下上面的算法，结果是：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;S[0]&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;</span><br><span class="line">(S -&gt; • A A, 0) # 初始化中加入</span><br><span class="line">(A -&gt; •, 0) # (S -&gt; • A A, 0)，predicate规则</span><br><span class="line">(S -&gt; A • A, 0) # (A -&gt; •, 0) &amp; (S -&gt; • A A, 0)，complete规则</span><br></pre></td></tr></table></figure>
+
+<p>到此为止了，<code>S[0]</code>中没有<code>(S -&gt; A A •, 0)</code>，因此按照上面的算法，空串不被接受。其实这个时候如果再对<code>(A -&gt; •, 0)</code>执行一次complete规则，因为<code>(S -&gt; A • A, 0)</code>存在，所以会把<code>(S -&gt; A A •, 0)</code>加入<code>S[0]</code>，这样就对了，但是原始的Earley算法中不会再考虑一次<code>(A -&gt; •, 0)</code>。你可能会问是不是<code>for (B -&gt; α • A β, y) in S[x]</code>这个<code>for</code>考虑后续加入的项就能解决问题呢？对上面这个语言确实是的，但是对这个语言，还是不行，所以这不是本质问题：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">S -&gt; A B A</span><br><span class="line">A -&gt;</span><br><span class="line">B -&gt;</span><br></pre></td></tr></table></figure>
+
+<p>考虑一下，发生这种情况的根本原因是什么？是因为complete规则中<code>i = x</code>，所以才需要纠结后续给<code>S[i]</code>新加入的项会不会影响到<code>S[x]</code>。什么情况下<code>i = x</code>？从x到i成功解析了A，而<code>i = x</code>，这意味着<code>A</code>是一个可空的非终结符。</p>
+<p>论文<a href="https://courses.engr.illinois.edu/cs421/sp2012/project/PracticalEarleyParsing.pdf" target="_blank" rel="noopener">Practical Earley Parsing</a>中给出了一个解决方案：在predicate规则中加入一个操作：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line"><span class="comment">// predicate规则</span></span><br><span class="line">(A -&gt; α • B β, x) =&gt; &#123; </span><br><span class="line">  <span class="keyword">for</span> (B -&gt; γ) <span class="keyword">in</span> grammar &#123; S[i].add((B -&gt; • γ, i)) &#125; <span class="comment">// 原本的操作</span></span><br><span class="line">  <span class="comment">// 新加入的操作</span></span><br><span class="line">  <span class="comment">// 因为B可空，所以不需要等到存在B -&gt; γ •时才能把点移动过B，只要点在B左边就可以把它移动到右边</span></span><br><span class="line">  <span class="keyword">if</span> nullable(B) &#123; S[i].add((A -&gt; α B • β, x)) &#125;</span><br><span class="line">&#125;</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>至于怎么计算每个非终结符是否可空，如果不追求效率的话就是很基本的自动机/编译原理的知识，相信大家都会。</p>
+<p>上面的语言中，<code>S</code>和<code>A</code>都是可空的，运行一下修改后的Earley算法看看：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">=====S[<span class="number">0</span>]=====</span><br><span class="line">(S -&gt; • A A, <span class="number">0</span>) # 初始化中加入</span><br><span class="line">(A -&gt; •, <span class="number">0</span>) # (S -&gt; • A A, <span class="number">0</span>)，predicate规则</span><br><span class="line">(S -&gt; A • A, <span class="number">0</span>) # (S -&gt; • A A, <span class="number">0</span>)，predicate规则</span><br><span class="line">(S -&gt; A A •, <span class="number">0</span>) # (A -&gt; •, <span class="number">0</span>) &amp; (S -&gt; A • A, <span class="number">0</span>)，complete规则</span><br></pre></td></tr></table></figure>
+
+<p>成功接受。</p>
+<h1 id="Earley-parser"><a href="#Earley-parser" class="headerlink" title="Earley parser"></a>Earley parser</h1><p><a href="http://dinhe.net/~aredridel/.notmine/PDFs/Parsing/SCOTT,%20Elizabeth%20-%20SPPF-Style%20Parsing%20From%20Earley%20Recognizers.pdf" target="_blank" rel="noopener">SPPF-Style Parsing From Earley Recognisers</a>给出的方法是能够保证立方的复杂度的，可惜我看不太懂。<a href="http://loup-vaillant.fr/tutorials/earley-parsing/parser" target="_blank" rel="noopener">http://loup-vaillant.fr/tutorials/earley-parsing/parser</a>给出的方法很好理解，也比较好实现，但是他没有证明复杂度，我也没有能力和兴趣去证了。</p>
+<p>基本思路就是从recognizer生成的表格中通过搜索得到树。首先把表格做一个类似转置的操作，方便后续分析：对于<code>S[i]</code>中的<code>(A -&gt; γ •, x)</code>(只考虑点在最后的项，表示解析完成了)，在<code>S&#39;[x]</code>中加入<code>(A -&gt; γ, i)</code>(点可以忽略了，因为只加入了点在最后的项)，两者都是表示从x到i解析出<code>γ</code>。</p>
+<p>已知<code>S&#39;[0]</code>中存在<code>(Start -&gt; γ, N)</code>，对于<code>γ</code>中的每一项，从第一项开始，它必须是从0开始解析的，看它是终结符还是非终结符，如果是终结符就把它和输入串中的对应位置进行匹配，如果不相等的话意味着这一支搜索失败了(第一项是不可能失败的，后面的项就有可能失败了)，相等的话就从1开始解析<code>γ</code>的第二项；如果是非终结符<code>A</code>，对于每个<code>S&#39;[0]</code>的<code>(A -&gt; α, x)</code>，分出一支进行搜索，因为它终止于x，所以之后就应该从x开始解析<code>γ</code>的第二项。</p>
+<p>如此这样搜索下去，如果没有失败地考虑了<code>γ</code>的每一项，而且最终的结束位置等于<code>N</code>，这就是一支成功的搜索，表示成功地为<code>S&#39;[0]</code>中的<code>(Start -&gt; γ, N)</code>的每个孩子找到了一个产生它的项，接下来再继续对这些项进行类似的搜索即可，这个过程没有必要是递归的，可以把他们保存到队列里面，做广搜之类的，不然递归套递归可能有点难以理解。</p>
+<h1 id="SPPF"><a href="#SPPF" class="headerlink" title="SPPF"></a>SPPF</h1><p>这些在上面的文章里没有，是我自己想到的。构思好了搜索的逻辑之后我很正常地想到搜索的过程中是不是可能出现相同的节点被多次搜索，比如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">S -&gt; A B</span><br><span class="line">A -&gt; A1</span><br><span class="line">A -&gt; A2</span><br><span class="line">A1 -&gt; a</span><br><span class="line">A2 -&gt; a</span><br><span class="line">B -&gt; B1</span><br><span class="line">B -&gt; B2</span><br><span class="line">B1 -&gt; b</span><br><span class="line">B2 -&gt; b</span><br></pre></td></tr></table></figure>
+
+<p>按照上面描述的搜索，第一支是先搜<code>A -&gt; A1</code>，再搜右端为<code>B</code>且从1开始解析的，第二支是先搜<code>A -&gt; A2</code>，再搜右端为<code>B</code>且从1开始解析的，后面搜索的目标是一样的，也必然会得到相同的搜索结果，如果重复做一遍的话是一种浪费。</p>
+<p>这其实就是朴素的SPPF(Shared Packed Parse Forest)的想法，它是用来高效表示有歧义的语法产生的多个语法树的数据结构。我没有找到它的官方定义或者是最先提出它的论文，所以我也不能确定我对它的理解是完全正确的，如果有错误的话麻烦大家及时指出。</p>
+<p>SPPF是一个有向，可能有环的图，每个节点包含的信息有一个产生式和一段输入串，表示这段输入串可以按照这个产生式解析。每个节点连出一组边，每个边表示<strong>一组</strong>得到产生式右端式子的每一项的节点集。用我的程序输出上面的语法解析”a b”得到的SPPF是(我为了让它好看一点，做了一点修改)，一个圆圈连出的边就是这一组节点集：</p>
+<img src="/pic/sppf.png" width=500 alt="">
+
+<p>对上面描述的搜索算法做一点修改就可以生成SPPF，而不是一组树。对一个右端式子进行搜索，生成了一组合法的生成右端式子的组合时，将其中每个产生式和范围的元组加入一个集合中，得到一个id之类的东西保存起来，这样就把边连起来了，如果集合中已经存在这个产生式+范围的话就意味着出现了节点的重用。一次搜索结束后，继续对集合中未搜索的元组进行搜索(就是上面提到的广搜)。</p>
+<p>除了节约空间之外，SPPF还带来了一个好处，因为它可以是有环的(这一定是因为存在可空的非终结符)，所以它可以表示无限多可能的语法树。例如这个语法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">A -&gt; A</span><br><span class="line">A -&gt;</span><br></pre></td></tr></table></figure>
+
+<p>用它解析空串生成的SPPF是：</p>
+<img src="/pic/sppf1.png" width=150 alt="">
+
+<h1 id="从SPPF到具体的树"><a href="#从SPPF到具体的树" class="headerlink" title="从SPPF到具体的树"></a>从SPPF到具体的树</h1><p>到这里基本就跟Earley算法没有关系了，不过也算是parser的一部分。这个也花了我挺长时间的，看起来是一个比较正常的需求，但是找了半天也没有发现已经存在的算法，只能自己想了。其实也不算太复杂，但是毕竟我水平有限，还是想了一段时间才想出来。</p>
+<p>首先想一个深搜的算法，搜索所有的树。这里有一个难点在于，每个节点往下可以有多个选择，每个选择中还有多个待搜索的节点，这就和简单的深搜不太一样了。主要还是要搞清楚访问节点的顺序是什么。以倒数第二张图为例，从<code>S -&gt; A B</code>开始，首先选择最左边的圆圈(圆圈并不是具体的节点，而是表示一组节点)，然后往下走，先看<code>A -&gt; A1</code>，需要搜索它的全部可能，比较幸运的是只有一个。继续往下走，到了<code>a</code>的时候停下，这个时候走完了这个分支，但是仍然没有为<code>S -&gt; A B</code>构造一棵具体的树，因为<code>B -&gt; B1</code>那一边还没有探索，所以需要能够从<code>a</code>这里跳到<code>B -&gt; B1</code>继续搜索。</p>
+<p>这个例子比较简单，但是也能看出来一点思路了：除了深搜的调用栈之外，还要再维护一个栈，每次选择一个产生式右端式子的一种可能时，只进入右端式子的第一项，而把剩余部分的信息保存到另一个栈中。当搜索进入一个叶子节点时，从这个栈中弹出一项，对它继续搜索；如果此时栈为空，即证明整个搜索已经完成。</p>
+<p>然后把深搜的版本改造成一个基于栈+状态机的版本，这并不是为了性能或者防止爆栈，而是希望能给用户提供一个更便捷的接口，能够像访问迭代器一样访问所有可能的树。而且考虑到树的总数可能是无限的，这个转化就更重要了，理论上就不能用深搜构造一个容器来保存所有的树再把容器返回给用户。其实我之前还想过使用Rust的Generator，另一篇文章<a href="https://mashplant.online/2020/07/07/rust-generator/" target="_blank" rel="noopener">试用Rust的Generator</a>其实就是为了这个写的，不过写完之后感觉现在的Generator还是不够成熟优雅，并不是很想用，还是自己转化成基于栈的版本吧。</p>
+<p>这个其实就是机械的工作了，我一直都知道这是可行的，不过也没有尝试过，这次终于手动操作了一回，完成了之后还优化了好久才达到自己比较满意的样子。现在用户可以像这样生成树了：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">let</span> <span class="keyword">mut</span> it = sppf.iter();</span><br><span class="line"><span class="keyword">let</span> <span class="keyword">mut</span> cnt = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">while</span> <span class="keyword">let</span> <span class="literal">Some</span>(tree) = it.next() &#123;</span><br><span class="line">  std::fs::write(<span class="built_in">format!</span>(<span class="string">"&#123;&#125;.dot"</span>, cnt), <span class="built_in">format!</span>(<span class="string">"&#123;&#125;"</span>, tree)).unwrap();</span><br><span class="line">  cnt += <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>说点关于Rust的题外话。你可能会好奇我为什么不用<code>Iterator::enumerate</code>来实现类似的功能，其实是是因为<code>it</code>并没有实现<code>Iterator</code>。<code>Iter::next</code>的定义是：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">pub</span> <span class="class"><span class="keyword">struct</span> <span class="title">Iter</span></span>&lt;<span class="symbol">'a</span>&gt; &#123;</span><br><span class="line">  ...</span><br><span class="line">  tree: SPPF&lt;<span class="symbol">'a</span>&gt;,</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">impl</span>&lt;<span class="symbol">'a</span>&gt; Iter&lt;<span class="symbol">'a</span>&gt; &#123;</span><br><span class="line">  <span class="comment">// 返回的树来自&amp;self.tree，也用SPPF表示，不过保证每个节点只有一种选择，所以是确定的树</span></span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">next</span></span>&lt;<span class="symbol">'b</span>&gt;(&amp;<span class="symbol">'b</span> <span class="keyword">mut</span> <span class="keyword">self</span>) -&gt; <span class="built_in">Option</span>&lt;&amp;<span class="symbol">'b</span> SPPF&lt;<span class="symbol">'a</span>&gt;&gt;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>比较遗憾的是这样的<code>next</code>不符合<code>Iterator::next</code>的要求，要让现在的<code>Iter</code>实现<code>Iterator</code>是不可能的，读者可以自己思考为什么。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Rust/" rel="tag"># Rust</a>
+              <a href="/tags/Compiler/" rel="tag"># Compiler</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/rust-generator/" rel="prev" title="试用Rust的Generator">
+      <i class="fa fa-chevron-left"></i> 试用Rust的Generator
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/lalr1-introduction/" rel="next" title="lalr1使用指导">
+      lalr1使用指导 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#简介"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Earley-recognizer"><span class="nav-number">2.</span> <span class="nav-text">Earley recognizer</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#空规则"><span class="nav-number">3.</span> <span class="nav-text">空规则</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Earley-parser"><span class="nav-number">4.</span> <span class="nav-text">Earley parser</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#SPPF"><span class="nav-number">5.</span> <span class="nav-text">SPPF</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#从SPPF到具体的树"><span class="nav-number">6.</span> <span class="nav-text">从SPPF到具体的树</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">MashPlant</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">18</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/MashPlant" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;MashPlant" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-rss fa-fw"></i>RSS</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">MashPlant</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a>
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'X7kE28uGIr8V7x8FaNWY71aY-gzGzoHsz',
+      appKey     : 'HdX9HsV0O0wHWAaEUurLSoTN',
+      placeholder: "发表你的评论",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : '' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,23 @@
+digraph g {
+0 -> 7 [label="'*'"];
+0 -> 4 [label="'/'"];
+0 -> 9 [label="'-'"];
+0 -> 8 [label="'+'"];
+0 -> 2 [label="\\t, \\n, \\r, ' '"];
+0 -> 1 [label="'%'"];
+0 -> 5 [label="')'"];
+0 -> 6 [label="'('"];
+0 -> 3 [label="0-9"];
+0[shape=circle, label="0"]
+1[shape=doublecircle, label="1\nacc:6"]
+2 -> 2 [label="\\t, \\n, \\r, ' '"];
+2[shape=doublecircle, label="2\nacc:8"]
+3 -> 3 [label="0-9"];
+3[shape=doublecircle, label="3\nacc:7"]
+4[shape=doublecircle, label="4\nacc:5"]
+5[shape=doublecircle, label="5\nacc:1"]
+6[shape=doublecircle, label="6\nacc:0"]
+7[shape=doublecircle, label="7\nacc:4"]
+8[shape=doublecircle, label="8\nacc:2"]
+9[shape=doublecircle, label="9\nacc:3"]
+}

@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mashplant.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"flat"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="简单记录一下我学习和使用Rust的Generator的过程。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="试用Rust的Generator">
+<meta property="og:url" content="https://mashplant.github.io/rust-generator/index.html">
+<meta property="og:site_name" content="MashPlant的笔记">
+<meta property="og:description" content="简单记录一下我学习和使用Rust的Generator的过程。">
+<meta property="article:published_time" content="2020-07-07T02:05:30.000Z">
+<meta property="article:modified_time" content="2020-07-11T01:03:26.461Z">
+<meta property="article:author" content="MashPlant">
+<meta property="article:tag" content="Rust">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://mashplant.github.io/rust-generator/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-Hans'
+  };
+</script>
+
+  <title>试用Rust的Generator | MashPlant的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="MashPlant的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">MashPlant的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">“你将孤单度过一生”</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://mashplant.github.io/rust-generator/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="MashPlant">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="MashPlant的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          试用Rust的Generator
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2020-07-06 19:05:30" itemprop="dateCreated datePublished" datetime="2020-07-06T19:05:30-07:00">2020-07-06</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-07-10 18:03:26" itemprop="dateModified" datetime="2020-07-10T18:03:26-07:00">2020-07-10</time>
+              </span>
+
+          
+            <span id="/rust-generator/" class="post-meta-item leancloud_visitors" data-flag-title="试用Rust的Generator" title="Views">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine: </span>
+    
+    <a title="valine" href="/rust-generator/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/rust-generator/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>简单记录一下我学习和使用Rust的Generator的过程。</p>
+<a id="more"></a>
+
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>Rust中的<a href="https://doc.rust-lang.org/std/ops/trait.Generator.html" target="_blank" rel="noopener">Generator</a>这一套很久之前就提出来了，在issue<a href="https://github.com/rust-lang/rust/issues/43122" target="_blank" rel="noopener">#43122</a>里一直从2017年讨论到现在，还是没有稳定，我也没见到什么知名的项目用过它，如果是我见识太短浅了麻烦提醒我。好像这个东西就一直游离在语言的边缘，看上去有点用，但是一直没有人用。我不太了解历史，但是总觉得<code>async</code>那一套出现的比它还晚，成熟的比它还早，如果我错了的话也麻烦提醒一下。</p>
+<h2 id="Generator-trait"><a href="#Generator-trait" class="headerlink" title="Generator trait"></a><code>Generator</code> trait</h2><p>类比<code>async</code>的核心是<code>Future</code> trait，<code>Generator</code>的核心是<code>Generator</code> trait。把这两个trait的定义列出来比较一下：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">pub</span> <span class="class"><span class="keyword">trait</span> <span class="title">Future</span></span> &#123;</span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Output</span></span>;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">poll</span></span>(<span class="keyword">self</span>: Pin&lt;&amp;<span class="keyword">mut</span> <span class="keyword">Self</span>&gt;, cx: &amp;<span class="keyword">mut</span> Context) -&gt; Poll&lt;Self::Output&gt;;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">pub</span> <span class="class"><span class="keyword">trait</span> <span class="title">Generator</span></span>&lt;R = ()&gt; &#123;</span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Yield</span></span>;</span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Return</span></span>;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">resume</span></span>(<span class="keyword">self</span>: Pin&lt;&amp;<span class="keyword">mut</span> <span class="keyword">Self</span>&gt;, arg: R) -&gt; GeneratorState&lt;Self::Yield, Self::Return&gt;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>其实是相当类似的。简单描述一下相同点和不同点：</p>
+<ol>
+<li>都以<code>self: Pin&lt;&amp;mut Self&gt;</code>为参数，因为它们内部都可能保存了指向自身的指针，只有这个数据结构被<code>Pin</code>住的情况下操作它才是安全的。</li>
+<li><code>Future</code>只有一个类型参数<code>Output</code>，表示最终返回的结果，<code>Poll</code>其实就相当于<code>Option</code>；<code>Generator</code>有两个类型参数<code>Yield</code>和<code>Return</code>，可以在返回零次或多次<code>Yield</code>后最终返回<code>Return</code>，<code>GeneratorState</code>其实就相当于<code>Result</code>。</li>
+<li><code>Future</code>的<code>poll</code>中有一个额外参数<code>cx</code>，一般是用来注册回调的；<code>Generator</code>的<code>resume</code>中有一个额外参数<code>arg</code>，也就是每次进入的时候都可以传一个参数，但是我个人觉得这和我印象中的生成器并不是很匹配，生成器不应该是给出一个初始参数构造好之后就像一个迭代器一样不断生成值吗？每次生成值的时候传入新的参数，这是一个什么样的语义呢？什么情况下能用得到呢？我现在也还不理解，希望得到解答。</li>
+</ol>
+<h2 id="用例"><a href="#用例" class="headerlink" title="用例"></a>用例</h2><p>unstable-book中<a href="https://doc.rust-lang.org/beta/unstable-book/language-features/generators.html" target="_blank" rel="noopener">有一章</a>讲<code>Generator</code>，我稍微简化了一下它的例子：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#![feature(generators, generator_trait)]</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">use</span> std::ops::&#123;Generator, GeneratorState&#125;;</span><br><span class="line"><span class="keyword">use</span> std::pin::Pin;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">fn</span> <span class="title">main</span></span>() &#123;</span><br><span class="line">  <span class="keyword">let</span> <span class="keyword">mut</span> g = || &#123;</span><br><span class="line">    <span class="keyword">yield</span> <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="string">"foo"</span></span><br><span class="line">  &#125;;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">assert_eq!</span>(Pin::new(&amp;<span class="keyword">mut</span> g).resume(()), GeneratorState::Yielded(<span class="number">1</span>));</span><br><span class="line">  <span class="built_in">assert_eq!</span>(Pin::new(&amp;<span class="keyword">mut</span> g).resume(()), GeneratorState::Complete(<span class="string">"foo"</span>));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>就像一般不会手动实现<code>Future</code> trait，而是用<code>async fn</code>或者<code>async</code>块来得到实现了<code>Future</code> trait的匿名类型一样，一般也不会手动实现<code>Generator</code> trait。上面的代码中<code>g</code>的值是一个<code>generator literal</code>，形式是一个闭包，里面可以用<code>yield</code>关键字来yield一个值。<code>g</code>的类型就是一个实现了<code>Generator&lt;(), Yield=i32, Return=&amp;&#39;static str&gt;</code>的匿名类型。</p>
+<p>为了调用<code>g</code>，需要先用<code>Pin</code>把它包裹起来再调用<code>resume</code>，这是<code>Generator</code> trait的要求。每次调用<code>resume</code>，就从上次停下来的地方开始(第一次执行时就从开头开始)，执行到<code>yield</code>或者<code>return</code>或者末尾，从而yield或者return一个值。这还是很符合直觉的，其他语言中如果有类似的feature的话，语义差不多也是这样的。</p>
+<p>需要注意的是，这里用了闭包的形式来定义<code>Generator</code>，这并不是为了简化代码而不用函数定义，事实上当前的编译器中<strong>不支持</strong>用函数定义<code>Generator</code>。具体细节请看error<a href="https://doc.rust-lang.org/error-index.html#E0627" target="_blank" rel="noopener">#E0627</a>。而Rust中的闭包想要引用自身相当麻烦（确实是可行的，但是需要一堆丑陋的boilerplate），所以目前应该是不太可能像其他语言（比如Python）一样很愉快地写递归的<code>Generator</code>。</p>
+<h2 id="意义"><a href="#意义" class="headerlink" title="意义"></a>意义</h2><p>unstable-book中说：</p>
+<blockquote>
+<p>At this time the main intended use case of generators is an implementation primitive for async/await syntax, but generators will likely be extended to ergonomic implementations of iterators and other primitives in the future.</p>
+</blockquote>
+<p>这里面说了两点，第一是作为实现<code>async</code>那一套的原语，我理解可能是编译器先把<code>async</code>那一套desugar成<code>yield</code>那一套，这样后续步骤就只用处理<code>yield</code>，毕竟这两种东西的语义还是有很多近似的地方，这样做是可以理解的，不过跟我们用户好像没什么关系。</p>
+<p>第二是用来实现迭代器之类的，这个我觉得是一个很符合实际需求的用途。比如我可能有一个递归函数，里面产生一些值，希望能把值的序列以迭代器的形式返回给用户，在当前的稳定<code>Rust</code>中我能想到的唯一的方法就是自己手动维护栈，实现状态机。如果能够在产生值的地方<code>yield</code>，然后整个函数自动成为一个<code>Generator</code>，那就方便多了。<code>Generator</code>和<code>Iterator</code>也很类似，前者一直返回<code>Yield</code>直到<code>Return</code>，后者一直返回<code>Some(Item)</code>直到<code>None</code>，所以用户很容易就可以把这个<code>Generator</code>当成迭代器用。</p>
+<p>但是现在的<code>Generator</code>是不能直接这样写的，上面也说了，当前的<code>Rust</code>没有提供直接在<code>Generator</code>中递归的手段。</p>
+<h1 id="递归"><a href="#递归" class="headerlink" title="递归"></a>递归</h1><p>上面说了不能直接写，但是经过一些不算太复杂的改写，还是可以用同样结构的代码来实现这个需求的。</p>
+<p>首先造个简单的轮子，把<code>Generator&lt;(), Yield&gt;</code>当<code>Iterator&lt;Item=Yield&gt;</code>用，这里<code>Generator</code>的<code>resume</code>的参数（默认）是单元类型，和我上面说的一样，这才是比较符合直觉的，后续执行的时候应该不用再提供信息；<code>resume</code>的返回值直接丢弃，对应于<code>next</code>返回<code>None</code>。</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#![feature(generators, generator_trait)]</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">use</span> std::ops::&#123;Generator, GeneratorState&#125;;</span><br><span class="line"><span class="keyword">use</span> std::pin::Pin;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">Iter</span></span>&lt;G&gt;(G);</span><br><span class="line"></span><br><span class="line"><span class="keyword">impl</span>&lt;G: Generator + Unpin&gt; <span class="built_in">Iterator</span> <span class="keyword">for</span> Iter&lt;G&gt; &#123;</span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Item</span></span> = G::Yield;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">next</span></span>(&amp;<span class="keyword">mut</span> <span class="keyword">self</span>) -&gt; <span class="built_in">Option</span>&lt;Self::Item&gt; &#123;</span><br><span class="line">    <span class="keyword">match</span> Pin::new(&amp;<span class="keyword">mut</span> <span class="keyword">self</span>.<span class="number">0</span>).resume(()) &#123;</span><br><span class="line">      GeneratorState::Yielded(x) =&gt; <span class="literal">Some</span>(x),</span><br><span class="line">      GeneratorState::Complete(_) =&gt; <span class="literal">None</span>,</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="树的中序遍历"><a href="#树的中序遍历" class="headerlink" title="树的中序遍历"></a>树的中序遍历</h2><p>先看一个Python版本的：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Tree</span>:</span></span><br><span class="line">  <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, x, l=None, r=None)</span>:</span></span><br><span class="line">    self.x = x</span><br><span class="line">    self.l = l</span><br><span class="line">    self.r = r</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">def</span> <span class="title">inorder</span><span class="params">(self)</span>:</span></span><br><span class="line">    <span class="keyword">if</span> self.l: <span class="keyword">yield</span> <span class="keyword">from</span> self.l.inorder()</span><br><span class="line">    <span class="keyword">yield</span> self.x</span><br><span class="line">    <span class="keyword">if</span> self.r: <span class="keyword">yield</span> <span class="keyword">from</span> self.r.inorder()</span><br><span class="line"></span><br><span class="line">tree = Tree(</span><br><span class="line">  <span class="number">5</span>,</span><br><span class="line">  Tree(<span class="number">3</span>, Tree(<span class="number">1</span>, <span class="literal">None</span>, Tree(<span class="number">2</span>)), Tree(<span class="number">4</span>)),</span><br><span class="line">  Tree(<span class="number">7</span>, Tree(<span class="number">6</span>), Tree(<span class="number">8</span>, <span class="literal">None</span>, Tree(<span class="number">9</span>))),</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">print(list(tree.inorder())) <span class="comment"># 输出[1, 2, 3, 4, 5, 6, 7, 8, 9]</span></span><br></pre></td></tr></table></figure>
+
+<p>Python大家应该都会，没有什么可说的。唯一可能不太常用的是<code>yield from</code>，请看<a href="https://docs.python.org/3/whatsnew/3.3.html#pep-380" target="_blank" rel="noopener">pep-380</a>。</p>
+<p>先在Rust里造一棵一样的树：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">Tree</span></span>(<span class="built_in">u64</span>, <span class="built_in">Option</span>&lt;<span class="built_in">Box</span>&lt;Tree&gt;&gt;, <span class="built_in">Option</span>&lt;<span class="built_in">Box</span>&lt;Tree&gt;&gt;);</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">fn</span> <span class="title">main</span></span>() &#123;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">inner</span></span>(x: <span class="built_in">u64</span>, l: <span class="built_in">Option</span>&lt;<span class="built_in">Box</span>&lt;Tree&gt;&gt;, r: <span class="built_in">Option</span>&lt;<span class="built_in">Box</span>&lt;Tree&gt;&gt;) -&gt; <span class="built_in">Option</span>&lt;<span class="built_in">Box</span>&lt;Tree&gt;&gt; &#123; <span class="literal">Some</span>(<span class="built_in">Box</span>::new(Tree(x, l, r))) &#125;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">leaf</span></span>(x: <span class="built_in">u64</span>) -&gt; <span class="built_in">Option</span>&lt;<span class="built_in">Box</span>&lt;Tree&gt;&gt; &#123; <span class="literal">Some</span>(<span class="built_in">Box</span>::new(Tree(x, <span class="literal">None</span>, <span class="literal">None</span>))) &#125;</span><br><span class="line">  <span class="keyword">let</span> tree = Tree(</span><br><span class="line">    <span class="number">5</span>,</span><br><span class="line">    inner(<span class="number">3</span>, inner(<span class="number">1</span>, <span class="literal">None</span>, leaf(<span class="number">2</span>)), leaf(<span class="number">4</span>)),</span><br><span class="line">    inner(<span class="number">7</span>, leaf(<span class="number">6</span>), inner(<span class="number">8</span>, <span class="literal">None</span>, leaf(<span class="number">9</span>))),</span><br><span class="line">  );</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我希望不用写闭包引用自身的那一坨代码（其实我也没有试过这个方法是否能用于<code>Generator</code>），所以还是需要一个函数，这个函数自身不可能是<code>Generator</code>，所以只能让它返回一个<code>Generator</code>。先写个大概的框架（相信大家能够理解<code>&#39;a</code>在这里的意义）：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">impl</span> Tree &#123;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">inorder</span></span>&lt;<span class="symbol">'a</span>&gt;(&amp;<span class="symbol">'a</span> <span class="keyword">self</span>) -&gt; <span class="keyword">impl</span> Generator&lt;Yield=<span class="built_in">u64</span>&gt; + <span class="symbol">'a</span> &#123;</span><br><span class="line">    <span class="keyword">move</span> || &#123;</span><br><span class="line">      <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(l) = &amp;<span class="keyword">self</span>.<span class="number">1</span> &#123; ??? &#125;</span><br><span class="line">      <span class="keyword">yield</span> <span class="keyword">self</span>.<span class="number">0</span>;</span><br><span class="line">      <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(r) = &amp;<span class="keyword">self</span>.<span class="number">2</span> &#123; ??? &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>之前说希望能返回给用户一个迭代器用，而不是生成器，所以再改改，用上之前造的<code>Iter</code>：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">fn</span> <span class="title">inorder</span></span>&lt;<span class="symbol">'a</span>&gt;(&amp;<span class="symbol">'a</span> <span class="keyword">self</span>) -&gt; <span class="keyword">impl</span> <span class="built_in">Iterator</span>&lt;Item=<span class="built_in">u64</span>&gt; + <span class="symbol">'a</span> &#123;</span><br><span class="line">  Iter(<span class="keyword">move</span> || &#123;</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(l) = &amp;<span class="keyword">self</span>.<span class="number">1</span> &#123; ??? &#125;</span><br><span class="line">    <span class="keyword">yield</span> <span class="keyword">self</span>.<span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(r) = &amp;<span class="keyword">self</span>.<span class="number">2</span> &#123; ??? &#125;</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>问号的地方，就是希望执行Python中的<code>yield from</code>的操作，也就是从一个生成器（在我们这里是迭代器）中生成所有元素，Rust里没有<code>yield from</code>这个集成的操作，只能自己手动写这个逻辑：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">fn</span> <span class="title">inorder</span></span>&lt;<span class="symbol">'a</span>&gt;(&amp;<span class="symbol">'a</span> <span class="keyword">self</span>) -&gt; <span class="keyword">impl</span> <span class="built_in">Iterator</span>&lt;Item=<span class="built_in">u64</span>&gt; + <span class="symbol">'a</span> &#123;</span><br><span class="line">  Iter(<span class="keyword">move</span> || &#123;</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(l) = &amp;<span class="keyword">self</span>.<span class="number">1</span> &#123;</span><br><span class="line">      <span class="keyword">let</span> l = l.inorder();</span><br><span class="line">      <span class="keyword">for</span> x <span class="keyword">in</span> l &#123; <span class="keyword">yield</span> x; &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">yield</span> <span class="keyword">self</span>.<span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(r) = &amp;<span class="keyword">self</span>.<span class="number">2</span> &#123;</span><br><span class="line">      <span class="keyword">let</span> r = r.inorder();</span><br><span class="line">      <span class="keyword">for</span> x <span class="keyword">in</span> r &#123; <span class="keyword">yield</span> x; &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这时编译会报错，大概长这个样子：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">error[E0720]: cannot resolve opaque <span class="class"><span class="keyword">type</span></span></span><br><span class="line"><span class="class"><span class="title">fn</span></span> inorder&lt;<span class="symbol">'a</span>&gt;(&amp;<span class="symbol">'a</span> <span class="keyword">self</span>) -&gt; <span class="keyword">impl</span> <span class="built_in">Iterator</span>&lt;Item=<span class="built_in">u64</span>&gt; + <span class="symbol">'a</span> &#123;</span><br><span class="line">                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ recursive opaque <span class="class"><span class="keyword">type</span></span></span><br></pre></td></tr></table></figure>
+
+<p>虽然不知道具体原因，但是可以猜测是因为递归调用的返回类型与函数的返回类型一样，编译器类型推断的时候出现了循环。这种情况的解决方案一般是用<code>Box&lt;dyn trait&gt;</code>套一层来打破循环：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">fn</span> <span class="title">inorder</span></span>&lt;<span class="symbol">'a</span>&gt;(&amp;<span class="symbol">'a</span> <span class="keyword">self</span>) -&gt; <span class="keyword">impl</span> <span class="built_in">Iterator</span>&lt;Item=<span class="built_in">u64</span>&gt; + <span class="symbol">'a</span> &#123;</span><br><span class="line">  Iter(<span class="keyword">move</span> || &#123;</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(l) = &amp;<span class="keyword">self</span>.<span class="number">1</span> &#123;</span><br><span class="line">      <span class="keyword">let</span> l: <span class="built_in">Box</span>&lt;<span class="keyword">dyn</span> <span class="built_in">Iterator</span>&lt;Item=<span class="built_in">u64</span>&gt;&gt; = <span class="built_in">Box</span>::new(l.inorder());</span><br><span class="line">      <span class="keyword">for</span> x <span class="keyword">in</span> l &#123; <span class="keyword">yield</span> x; &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">yield</span> <span class="keyword">self</span>.<span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(r) = &amp;<span class="keyword">self</span>.<span class="number">2</span> &#123;</span><br><span class="line">      <span class="keyword">let</span> r: <span class="built_in">Box</span>&lt;<span class="keyword">dyn</span> <span class="built_in">Iterator</span>&lt;Item=<span class="built_in">u64</span>&gt;&gt; = <span class="built_in">Box</span>::new(r.inorder());</span><br><span class="line">      <span class="keyword">for</span> x <span class="keyword">in</span> r &#123; <span class="keyword">yield</span> x; &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>到这里就已经完成了，加点输出：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">fn</span> <span class="title">main</span></span>() &#123;</span><br><span class="line">  ...</span><br><span class="line">  <span class="keyword">for</span> x <span class="keyword">in</span> tree.inorder() &#123; <span class="built_in">print!</span>(<span class="string">"&#123;&#125; "</span>, x); &#125; <span class="comment">// 输出1 2 3 4 5 6 7 8 9 </span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以再定义一个宏来提取一下这个手动的<code>yield from</code>的操作：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">macro_rules!</span> yield_from &#123;</span><br><span class="line">  ($iter: expr, $elem: ty) =&gt; &#123;</span><br><span class="line">    <span class="keyword">let</span> iter: <span class="built_in">Box</span>&lt;<span class="keyword">dyn</span> <span class="built_in">Iterator</span>&lt;Item=$elem&gt;&gt; = <span class="built_in">Box</span>::new($iter);</span><br><span class="line">    <span class="keyword">for</span> x <span class="keyword">in</span> iter &#123; <span class="keyword">yield</span> x; &#125;</span><br><span class="line">  &#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="展开列表"><a href="#展开列表" class="headerlink" title="展开列表"></a>展开列表</h2><p>这个例子和上面那个没有什么本质区别，可以跳过。</p>
+<p>我记得我在初学Python的时候就接触过一个经典的例子：展开一个不规则的列表的列表，比如把<code>[[[1, 2, 3], [4, 5]], 6]</code>展开成<code>[1, 2, 3, 4, 5, 6]</code>：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">flatten</span><span class="params">(l)</span>:</span></span><br><span class="line">  <span class="keyword">for</span> x <span class="keyword">in</span> l:</span><br><span class="line">    <span class="keyword">if</span> isinstance(x, list): <span class="keyword">yield</span> <span class="keyword">from</span> flatten(x)</span><br><span class="line">    <span class="keyword">else</span>: <span class="keyword">yield</span> x</span><br><span class="line"></span><br><span class="line">print(list(flatten([[[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>], [<span class="number">4</span>, <span class="number">5</span>]], <span class="number">6</span>]))) <span class="comment"># 输出[1, 2, 3, 4, 5, 6]</span></span><br></pre></td></tr></table></figure>
+
+<p>用Rust来写一下：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">enum</span> <span class="title">Elem</span></span> &#123;</span><br><span class="line">  List(<span class="built_in">Vec</span>&lt;Elem&gt;),</span><br><span class="line">  Single(<span class="built_in">u64</span>),</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">fn</span> <span class="title">flatten</span></span>&lt;<span class="symbol">'a</span>&gt;(l: &amp;<span class="symbol">'a</span> [Elem]) -&gt; <span class="keyword">impl</span> <span class="built_in">Iterator</span>&lt;Item=<span class="built_in">u64</span>&gt; + <span class="symbol">'a</span> &#123;</span><br><span class="line">  Iter(<span class="keyword">move</span> || &#123;</span><br><span class="line">    <span class="keyword">for</span> x <span class="keyword">in</span> l &#123;</span><br><span class="line">      <span class="keyword">match</span> x &#123;</span><br><span class="line">        Elem::List(x) =&gt; yield_from!(flatten(x), <span class="built_in">u64</span>),</span><br><span class="line">        Elem::Single(x) =&gt; <span class="keyword">yield</span> *x,</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">fn</span> <span class="title">main</span></span>() &#123;</span><br><span class="line">  <span class="keyword">let</span> l = <span class="built_in">vec!</span>[</span><br><span class="line">    Elem::List(<span class="built_in">vec!</span>[</span><br><span class="line">      Elem::List(<span class="built_in">vec!</span>[Elem::Single(<span class="number">1</span>), Elem::Single(<span class="number">2</span>), Elem::Single(<span class="number">3</span>)]),</span><br><span class="line">      Elem::List(<span class="built_in">vec!</span>[Elem::Single(<span class="number">4</span>), Elem::Single(<span class="number">5</span>)]),</span><br><span class="line">    ]),</span><br><span class="line">    Elem::Single(<span class="number">6</span>),</span><br><span class="line">  ];</span><br><span class="line">  <span class="keyword">for</span> x <span class="keyword">in</span> flatten(&amp;l) &#123; <span class="built_in">print!</span>(<span class="string">"&#123;&#125; "</span>, x); &#125; <span class="comment">// 输出1 2 3 4 5 6 </span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="爆栈"><a href="#爆栈" class="headerlink" title="爆栈"></a>爆栈</h2><p>需要声明的是，上面这些转化并没有把一个依赖调用栈的递归函数的变成一个依赖堆上的栈进行状态转移的非递归的数，所以该爆栈的时候还是会爆栈的。这在Python里也是一样的，下面这两个例子都会爆栈，如果你的环境下没有爆的话，要么是数字还不够大，要么是编译器做了优化，本质逻辑上还是依赖于一个调用栈的。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">range</span><span class="params">(n)</span>:</span></span><br><span class="line">  <span class="keyword">if</span> n &gt; <span class="number">0</span>: <span class="keyword">yield</span> <span class="keyword">from</span> range(n - <span class="number">1</span>)</span><br><span class="line">  <span class="keyword">yield</span> n</span><br><span class="line"></span><br><span class="line">print(list(range(<span class="number">10</span>))) <span class="comment"># 输出[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]</span></span><br><span class="line">print(list(range(<span class="number">1000000</span>))) <span class="comment"># 爆栈</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">fn</span> <span class="title">range</span></span>(n: <span class="built_in">u64</span>) -&gt; <span class="keyword">impl</span> <span class="built_in">Iterator</span>&lt;Item=<span class="built_in">u64</span>&gt; &#123;</span><br><span class="line">  Iter(<span class="keyword">move</span> || &#123;</span><br><span class="line">    <span class="keyword">if</span> n &gt; <span class="number">0</span> &#123; yield_from!(range(n - <span class="number">1</span>), <span class="built_in">u64</span>); &#125;</span><br><span class="line">    <span class="keyword">yield</span> n;</span><br><span class="line">  &#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">fn</span> <span class="title">main</span></span>() &#123;</span><br><span class="line">  <span class="keyword">for</span> x <span class="keyword">in</span> range(<span class="number">10</span>) &#123; <span class="built_in">print!</span>(<span class="string">"&#123;&#125; "</span>, x); &#125; <span class="comment">// 输出0 1 2 3 4 5 6 7 8 9 10 </span></span><br><span class="line">  <span class="keyword">for</span> x <span class="keyword">in</span> range(<span class="number">1000000</span>) &#123; <span class="built_in">print!</span>(<span class="string">"&#123;&#125; "</span>, x); &#125; <span class="comment">// 爆栈</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="性能"><a href="#性能" class="headerlink" title="性能"></a>性能</h2><p>纯粹无聊，想测试一下几种方法来实现递归的性能怎么样。只是随便测一下，满足我自己的好奇心，并不保证什么严谨性。这里用树的中序遍历来测试，求所有节点的和，实现递归的方法包括直接递归，用<code>Generator</code>实现递归，用标准的栈实现中序遍历的算法实现递归，用栈+状态机实现递归。代码如下：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">impl</span> Tree &#123;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">inorder_rec</span></span>(&amp;<span class="keyword">self</span>, f: &amp;<span class="keyword">mut</span> <span class="keyword">impl</span> <span class="built_in">FnMut</span>(<span class="built_in">u64</span>)) &#123;</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(l) = &amp;<span class="keyword">self</span>.<span class="number">1</span> &#123; l.inorder_rec(f); &#125;</span><br><span class="line">    f(<span class="keyword">self</span>.<span class="number">0</span>);</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(r) = &amp;<span class="keyword">self</span>.<span class="number">2</span> &#123; r.inorder_rec(f); &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">inorder_gen</span></span>&lt;<span class="symbol">'a</span>&gt;(&amp;<span class="symbol">'a</span> <span class="keyword">self</span>) -&gt; <span class="keyword">impl</span> <span class="built_in">Iterator</span>&lt;Item=<span class="built_in">u64</span>&gt; + <span class="symbol">'a</span> &#123;</span><br><span class="line">    Iter(<span class="keyword">move</span> || &#123;</span><br><span class="line">      <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(l) = &amp;<span class="keyword">self</span>.<span class="number">1</span> &#123; yield_from!(l.inorder_gen(), <span class="built_in">u64</span>); &#125;</span><br><span class="line">      <span class="keyword">yield</span> <span class="keyword">self</span>.<span class="number">0</span>;</span><br><span class="line">      <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(r) = &amp;<span class="keyword">self</span>.<span class="number">2</span> &#123; yield_from!(r.inorder_gen(), <span class="built_in">u64</span>); &#125;</span><br><span class="line">    &#125;)</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 标准的栈实现中序遍历的算法，上过数据结构课的人应该都能理解</span></span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">inorder_stk</span></span>(&amp;<span class="keyword">self</span>, f: &amp;<span class="keyword">mut</span> <span class="keyword">impl</span> <span class="built_in">FnMut</span>(<span class="built_in">u64</span>)) &#123;</span><br><span class="line">    <span class="keyword">let</span> <span class="keyword">mut</span> stk = <span class="built_in">vec!</span>[<span class="keyword">self</span>];</span><br><span class="line">    <span class="keyword">while</span> <span class="keyword">let</span> <span class="literal">Some</span>(&amp;t) = stk.last() &#123;</span><br><span class="line">      <span class="keyword">let</span> <span class="keyword">mut</span> t = t;</span><br><span class="line">      <span class="keyword">while</span> <span class="keyword">let</span> <span class="literal">Some</span>(l) = &amp;t.<span class="number">1</span> &#123;</span><br><span class="line">        stk.push(l);</span><br><span class="line">        t = l;</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">while</span> <span class="keyword">let</span> <span class="literal">Some</span>(t) = stk.pop() &#123;</span><br><span class="line">        f(t.<span class="number">0</span>);</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(r) = &amp;t.<span class="number">2</span> &#123;</span><br><span class="line">          stk.push(r);</span><br><span class="line">          <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 栈+状态机实现递归。Rust中没有goto，所以代码中有一定的冗余(_0的else分支和_1完全一样)</span></span><br><span class="line">  <span class="comment">// 如果允许goto的话，也许性能会更好一些</span></span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">inorder_stk1</span></span>(&amp;<span class="keyword">self</span>, f: &amp;<span class="keyword">mut</span> <span class="keyword">impl</span> <span class="built_in">FnMut</span>(<span class="built_in">u64</span>)) &#123;</span><br><span class="line">    <span class="class"><span class="keyword">enum</span> <span class="title">State</span></span>&lt;<span class="symbol">'a</span>&gt; &#123;</span><br><span class="line">      _0(&amp;<span class="symbol">'a</span> Tree),</span><br><span class="line">      _1(&amp;<span class="symbol">'a</span> Tree),</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">let</span> <span class="keyword">mut</span> stk = <span class="built_in">vec!</span>[State::_0(<span class="keyword">self</span>)];</span><br><span class="line">    <span class="keyword">loop</span> &#123;</span><br><span class="line">      <span class="keyword">match</span> stk.pop() &#123;</span><br><span class="line">        <span class="literal">Some</span>(State::_0(t)) =&gt; <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(l) = &amp;t.<span class="number">1</span> &#123;</span><br><span class="line">          stk.push(State::_1(t));</span><br><span class="line">          stk.push(State::_0(l));</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">          f(t.<span class="number">0</span>);</span><br><span class="line">          <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(r) = &amp;t.<span class="number">2</span> &#123; stk.push(State::_0(r)); &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="literal">Some</span>(State::_1(t)) =&gt; &#123;</span><br><span class="line">          f(t.<span class="number">0</span>);</span><br><span class="line">          <span class="keyword">if</span> <span class="keyword">let</span> <span class="literal">Some</span>(r) = &amp;t.<span class="number">2</span> &#123; stk.push(State::_0(r)); &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="literal">None</span> =&gt; <span class="keyword">return</span>,</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>树就随机插入数据来构建，这个代码就太平凡了，不展示了。随机插入1000000个数，求和20次取平均时间，结果如下：</p>
+<table>
+<thead>
+<tr>
+<th>inorder_rec</th>
+<th>inorder_gen</th>
+<th>inorder_stk</th>
+<th>inorder_stk1</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>36.85ms</td>
+<td>212.3ms</td>
+<td>36.45ms</td>
+<td>44.55ms</td>
+</tr>
+</tbody></table>
+<p>可见现在的<code>Generator</code>的性能还是相当一般。标准的栈实现中序遍历的算法的性能和直接递归非常接近，甚至略优一点，不过对于现实中的问题不总是有这种优美的解法，但是都可以改写成基于栈+状态机的版本，这个性能虽然差一些，但也可以接受，我个人相比于用<code>Generator</code>更推荐它。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Rust/" rel="tag"># Rust</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020-spring-summary-md/" rel="prev" title="大三下总结">
+      <i class="fa fa-chevron-left"></i> 大三下总结
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/earley-introduction/" rel="next" title="Earley算法和实现">
+      Earley算法和实现 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#背景"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Generator-trait"><span class="nav-number">1.1.</span> <span class="nav-text">Generator trait</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#用例"><span class="nav-number">1.2.</span> <span class="nav-text">用例</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#意义"><span class="nav-number">1.3.</span> <span class="nav-text">意义</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#递归"><span class="nav-number">2.</span> <span class="nav-text">递归</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#树的中序遍历"><span class="nav-number">2.1.</span> <span class="nav-text">树的中序遍历</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#展开列表"><span class="nav-number">2.2.</span> <span class="nav-text">展开列表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#爆栈"><span class="nav-number">2.3.</span> <span class="nav-text">爆栈</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#性能"><span class="nav-number">2.4.</span> <span class="nav-text">性能</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">MashPlant</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">18</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/MashPlant" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;MashPlant" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-rss fa-fw"></i>RSS</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">MashPlant</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a>
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'X7kE28uGIr8V7x8FaNWY71aY-gzGzoHsz',
+      appKey     : 'HdX9HsV0O0wHWAaEUurLSoTN',
+      placeholder: "发表你的评论",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : '' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

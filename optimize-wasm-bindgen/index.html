@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mashplant.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"flat"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="最近刚刚入门Rust的WebAssembly工具链，写了一些很平凡的小程序，发现了一个很小的值得优化的点，即wasm-bindgen对用来封装单个基本类型变量的结构体的处理不够优化。 你要问我做不做这个优化究竟有什么意义，我只能回答确实没什么太大意义，这几乎不太可能成为性能瓶颈，所以这篇文章主要目的其实只是记录一下我作为初学者探索wasm-bindgen的工作原理的过程。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="尝试优化wasm-bindgen生成的程序">
+<meta property="og:url" content="https://mashplant.github.io/optimize-wasm-bindgen/index.html">
+<meta property="og:site_name" content="MashPlant的笔记">
+<meta property="og:description" content="最近刚刚入门Rust的WebAssembly工具链，写了一些很平凡的小程序，发现了一个很小的值得优化的点，即wasm-bindgen对用来封装单个基本类型变量的结构体的处理不够优化。 你要问我做不做这个优化究竟有什么意义，我只能回答确实没什么太大意义，这几乎不太可能成为性能瓶颈，所以这篇文章主要目的其实只是记录一下我作为初学者探索wasm-bindgen的工作原理的过程。">
+<meta property="article:published_time" content="2020-05-30T04:35:15.000Z">
+<meta property="article:modified_time" content="2020-06-04T03:35:43.293Z">
+<meta property="article:author" content="MashPlant">
+<meta property="article:tag" content="Rust">
+<meta property="article:tag" content="WebAssembly">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://mashplant.github.io/optimize-wasm-bindgen/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-Hans'
+  };
+</script>
+
+  <title>尝试优化wasm-bindgen生成的程序 | MashPlant的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="MashPlant的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">MashPlant的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">“你将孤单度过一生”</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://mashplant.github.io/optimize-wasm-bindgen/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="MashPlant">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="MashPlant的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          尝试优化wasm-bindgen生成的程序
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2020-05-29 21:35:15" itemprop="dateCreated datePublished" datetime="2020-05-29T21:35:15-07:00">2020-05-29</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2020-06-03 20:35:43" itemprop="dateModified" datetime="2020-06-03T20:35:43-07:00">2020-06-03</time>
+              </span>
+
+          
+            <span id="/optimize-wasm-bindgen/" class="post-meta-item leancloud_visitors" data-flag-title="尝试优化wasm-bindgen生成的程序" title="Views">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine: </span>
+    
+    <a title="valine" href="/optimize-wasm-bindgen/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/optimize-wasm-bindgen/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>最近刚刚入门Rust的WebAssembly工具链，写了一些很平凡的小程序，发现了一个<strong>很小</strong>的值得优化的点，即<code>wasm-bindgen</code>对用来封装单个基本类型变量的结构体的处理不够优化。</p>
+<p>你要问我做不做这个优化究竟有什么意义，我只能回答确实没什么太大意义，这几乎不太可能成为性能瓶颈，所以这篇文章主要目的其实只是记录一下我作为初学者探索<code>wasm-bindgen</code>的工作原理的过程。</p>
+<a id="more"></a>
+
+<h1 id="环境"><a href="#环境" class="headerlink" title="环境"></a>环境</h1><p>先放一下工具链的版本，毕竟关于WASM的一切都还在快速更新，版本不一样结果可能会有不一样：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ rustc -V</span><br><span class="line">rustc 1.45.0-nightly (a74d1862d 2020-05-14)</span><br><span class="line">$ wasm-pack -V</span><br><span class="line">wasm-pack 0.9.1</span><br><span class="line"><span class="comment"># Cargo中依赖的wasm-bindgen版本为"0.2.62"</span></span><br></pre></td></tr></table></figure>
+
+<p>因为我本身是一个初学者，所以贴一下项目的构建过程：我是follow官方的<a href="https://rustwasm.github.io/docs/book/game-of-life/setup.html" target="_blank" rel="noopener">https://rustwasm.github.io/docs/book/game-of-life/setup.html</a> 的构建过程，看<code>Setup</code>一章和<code>Hello, World!</code>一章即可。以下假定项目的名字叫<code>blog</code>，且目录结构与这篇文档中的一样。</p>
+<h1 id="问题"><a href="#问题" class="headerlink" title="问题"></a>问题</h1><p>首先在<code>src/lib.rs</code>里写如下代码(原有的代码删了，都用不到)：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">use</span> wasm_bindgen::prelude::*;</span><br><span class="line"></span><br><span class="line"><span class="meta">#[wasm_bindgen]</span></span><br><span class="line"><span class="meta">#[derive(Copy, Clone)]</span></span><br><span class="line"><span class="keyword">pub</span> <span class="class"><span class="keyword">struct</span> <span class="title">Answer</span></span>(<span class="built_in">u32</span>);</span><br><span class="line"></span><br><span class="line"><span class="meta">#[wasm_bindgen]</span></span><br><span class="line"><span class="keyword">impl</span> Answer &#123;</span><br><span class="line">  <span class="keyword">pub</span> <span class="function"><span class="keyword">fn</span> <span class="title">new</span></span>() -&gt; Answer &#123; Answer(<span class="number">41</span>) &#125;</span><br><span class="line">  <span class="keyword">pub</span> <span class="function"><span class="keyword">fn</span> <span class="title">the_answer</span></span>(<span class="keyword">self</span>) -&gt; <span class="built_in">u32</span> &#123; <span class="keyword">self</span>.<span class="number">0</span> + <span class="number">1</span> &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>the_answer</code>参数用<code>self</code>而不是<code>&amp;self</code>从正常的Rust角度来看是完全合理的，因为<code>Answer</code>很小，而且实现了<code>Copy</code>，如果不考虑编译器优化的话传<code>self</code>可以节省函数体内的一次访存，考虑了编译优化<code>self</code>和<code>&amp;self</code>至少也是一样快。</p>
+<p>如果是正常的Rust程序，假设是<code>x86_64-linux</code>的ABI的话，你应该会期望这两个函数非常简单，<code>Answer</code>结构体可以直接用寄存器传参/返回，所以<code>new</code>应该直接编译成寄存器赋值，<code>the_answer</code>应该直接编译成一条寄存器加法(其实是<code>lea</code>指令)。</p>
+<p>我们来编写一点JS代码来测试一下。提醒一下，在此之前请先follow官方的教程，修改<code>www/package.json</code>以及执行<code>npm install</code>。把<code>src/index.js</code>改成这样：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> &#123;Answer&#125; <span class="keyword">from</span> <span class="string">"blog"</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">let</span> answer = Answer.new();</span><br><span class="line"><span class="built_in">console</span>.log(answer.the_answer());</span><br><span class="line"><span class="built_in">console</span>.log(answer.the_answer());</span><br></pre></td></tr></table></figure>
+
+<p>在<code>www</code>目录下运行<code>npm run start</code>，访问，很不幸出错了，浏览器的输出如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">42</span><br><span class="line">Error importing &#96;index.js&#96;: Error: null pointer passed to rust</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>可见第二次<code>the_answer</code>调用失败了，就像是我们没有加<code>#[derive(Copy, Clone)]</code>的时候，Rust编译器不让我们第二次调用<code>the_answer</code>一样。我大胆地推测一下，目前<code>wasm-bindgen</code>这个工具并没有考虑我们写的<code>#[derive(Copy, Clone)]</code>。</p>
+<h1 id="探究原因"><a href="#探究原因" class="headerlink" title="探究原因"></a>探究原因</h1><p>我们编写的JS代码和WASM的交互是经过<code>pkg/blog_bg.js</code>这一层的间接的，看看这里面<code>the_answer</code>是怎么实现的：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">export</span> <span class="class"><span class="keyword">class</span> <span class="title">Answer</span> </span>&#123;</span><br><span class="line">  ...</span><br><span class="line">  the_answer() &#123;</span><br><span class="line">    <span class="keyword">var</span> ptr = <span class="keyword">this</span>.ptr;</span><br><span class="line">    <span class="keyword">this</span>.ptr = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">var</span> ret = wasm.answer_the_answer(ptr);</span><br><span class="line">    <span class="keyword">return</span> ret &gt;&gt;&gt; <span class="number">0</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>原来是调用过一次之后就置成空指针了，这就解释了为什么第二次调用<code>the_answer</code>时报了一个空指针错误。但是为什么要这样做呢？为什么不能留着这个指针多次调用呢？</p>
+<p>稍微修改一下<code>Cargo.toml</code>，删掉以下的部分，让接下来的结果更易读一些：</p>
+<figure class="highlight toml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[profile.release]</span></span><br><span class="line"><span class="comment"># Tell `rustc` to optimize for small code size.</span></span><br><span class="line"><span class="attr">opt-level</span> = <span class="string">"s"</span></span><br></pre></td></tr></table></figure>
+
+<p>它为了节约空间会让一些函数不内联，这样我们读起来还需要跨越函数，就不方便了，所以删掉它。删掉它也不会影响其它该做的优化的效果。</p>
+<p>那我们现在编译一下，看看WASM下这两个函数会被编译成了什么：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">$ wasm-pack build</span><br><span class="line">$ <span class="built_in">cd</span> pkg</span><br><span class="line"><span class="comment"># wasm-dis是从https://github.com/WebAssembly/binaryen clone并编译的</span></span><br><span class="line"><span class="comment"># wasm2wat的效果一样，它是从https://github.com/WebAssembly/wabt clone并编译的</span></span><br><span class="line"><span class="comment"># 这两个项目都是编译后用make install来安装，但是它们的readme中都没有提到</span></span><br><span class="line">$ wasm-dis blog_bg.wasm</span><br></pre></td></tr></table></figure>
+
+<p>请注意<code>wasm-pack build</code>就是以优化模式编译的，<code>wasm-pack build --debug</code>才是以调试模式编译的。</p>
+<p>看看<code>the_answer</code>的结果：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">(export &quot;answer_the_answer&quot; (func $3))</span><br><span class="line">...</span><br><span class="line">(func $3 (param $0 i32) (result i32)</span><br><span class="line"> (local $1 i32)</span><br><span class="line"> (local $2 i32)</span><br><span class="line"> (block $label$1</span><br><span class="line">  (if</span><br><span class="line">   (local.get $0)</span><br><span class="line">   (block</span><br><span class="line">    (br_if $label$1</span><br><span class="line">     (i32.load</span><br><span class="line">      (local.get $0)</span><br><span class="line">     )</span><br><span class="line">    )</span><br><span class="line">    (i32.store</span><br><span class="line">     (local.get $0)</span><br><span class="line">     (i32.const 0)</span><br><span class="line">    )</span><br><span class="line">    (return</span><br><span class="line">     (i32.add</span><br><span class="line">      (block (result i32)</span><br><span class="line">       (local.set $2</span><br><span class="line">        (i32.load offset&#x3D;4</span><br><span class="line">         (local.get $0)</span><br><span class="line">        )</span><br><span class="line">       )</span><br><span class="line">       (call $1</span><br><span class="line">        (local.get $0)</span><br><span class="line">       )</span><br><span class="line">       (local.get $2)</span><br><span class="line">      )</span><br><span class="line">      (i32.const 1)</span><br><span class="line">     )</span><br><span class="line">    )</span><br><span class="line">   )</span><br><span class="line">  )</span><br><span class="line">  (call $6)</span><br><span class="line">  (unreachable)</span><br><span class="line"> )</span><br><span class="line"> (call $7)</span><br><span class="line"> (unreachable)</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>这也太复杂了吧！如果你不熟悉这个WAT(WebAssembly Text Format)的语法，还可以用<code>wasm2c</code>(与<code>wasm2wat</code>安装方法一样)来看看它翻译成C之后长啥样：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> u32 <span class="title">w2c_answer_the_answer</span><span class="params">(u32 w2c_p0)</span> </span>&#123;</span><br><span class="line">  u32 w2c_l1 = <span class="number">0</span>;</span><br><span class="line">  FUNC_PROLOGUE;</span><br><span class="line">  u32 w2c_i0, w2c_i1;</span><br><span class="line">  w2c_i0 = w2c_p0;</span><br><span class="line">  <span class="keyword">if</span> (w2c_i0) &#123;</span><br><span class="line">    w2c_i0 = w2c_p0;</span><br><span class="line">    w2c_i0 = i32_load((&amp;w2c_memory), (u64)(w2c_i0));</span><br><span class="line">    <span class="keyword">if</span> (w2c_i0) &#123;<span class="keyword">goto</span> w2c_B0;&#125;</span><br><span class="line">    w2c_i0 = w2c_p0;</span><br><span class="line">    w2c_i1 = <span class="number">0u</span>;</span><br><span class="line">    i32_store((&amp;w2c_memory), (u64)(w2c_i0), w2c_i1);</span><br><span class="line">    w2c_i0 = w2c_p0;</span><br><span class="line">    w2c_i0 = i32_load((&amp;w2c_memory), (u64)(w2c_i0) + <span class="number">4u</span>);</span><br><span class="line">    w2c_i1 = w2c_p0;</span><br><span class="line">    w2c_f2(w2c_i1); <span class="comment">// 这个函数非常复杂，经分析，应该是用来释放内存</span></span><br><span class="line">    w2c_i1 = <span class="number">1u</span>;</span><br><span class="line">    w2c_i0 += w2c_i1;</span><br><span class="line">    <span class="keyword">goto</span> w2c_Bfunc;</span><br><span class="line">  &#125;</span><br><span class="line">  w2c_f7(); <span class="comment">// 这个函数是抛异常</span></span><br><span class="line">  UNREACHABLE;</span><br><span class="line">  w2c_B0:;</span><br><span class="line">  w2c_f8(); <span class="comment">// 这个函数也是抛异常</span></span><br><span class="line">  UNREACHABLE;</span><br><span class="line">  w2c_Bfunc:;</span><br><span class="line">  FUNC_EPILOGUE;</span><br><span class="line">  <span class="keyword">return</span> w2c_i0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我还可以再人工精简一下这个C代码，不过不是等价转化，只是为了理解方便：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// WASM默认是32位的，所以sizeof(u32 *) == sizeof(u32)成立</span></span><br><span class="line"><span class="function"><span class="keyword">static</span> u32 <span class="title">w2c_answer_the_answer</span><span class="params">(u32 *arg)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (arg != <span class="literal">nullptr</span>) &#123; <span class="comment">// 显然这是在做空指针检查，尽管我们写的是self，但最后还是按指针传递的</span></span><br><span class="line">    <span class="keyword">if</span> (arg[<span class="number">0</span>] != <span class="number">0</span>) &#123; <span class="comment">// 这是在检查什么呢？</span></span><br><span class="line">      <span class="keyword">throw</span> exception_f8();</span><br><span class="line">    &#125;</span><br><span class="line">    arg[<span class="number">0</span>] = <span class="number">0</span>;</span><br><span class="line">    u32 ret = arg[<span class="number">1</span>] + <span class="number">1</span>; <span class="comment">// 函数的逻辑就这一行...</span></span><br><span class="line">    <span class="built_in">free</span>(arg); <span class="comment">// 所以说JS传来的指针在这里被free了，那JS里把它置0是合理的</span></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">throw</span> exception_f7();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>至此可以总结：Rust中的移动语义在WASM和JS中的体现方式为：</p>
+<ol>
+<li>JS中调用过一次即把指针置0</li>
+<li>WASM中free掉传入的参数</li>
+</ol>
+<p>而不是直接传值，即使这个结构体只有一个字段，完全可以由一个JS的<code>number</code>来表示。</p>
+<p>所以，在<code>wasm-bindgen</code>的代码中用<code>self</code>这样的移动语义并不能带来<strong>任何</strong>好处。事实上，如果将<code>the_answer</code>的参数换成<code>&amp;self</code>，重复一遍上面的工作，就会发现结果仅有的改变只是WASM中没有了free，JS中没有了指针置0。</p>
+<h1 id="分析wasm-bindgen的工作原理"><a href="#分析wasm-bindgen的工作原理" class="headerlink" title="分析wasm-bindgen的工作原理"></a>分析wasm-bindgen的工作原理</h1><p>我们将用<code>cargo-expand</code>工具来查看<code>#[wasm_bindgen]</code>生成的代码，没有安装的人可以执行<code>cargo install cargo-expand</code>来安装。具体参数是：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cargo expand --lib --target wasm32-unknown-unknown</span><br></pre></td></tr></table></figure>
+
+<p>注意这个target参数不可缺少，这是Rust编译为WASM时的target参数，如果使用默认target，结果会不一样。</p>
+<p>有必要先介绍一下相关的trait的含义是什么，这些在文档(<a href="https://docs.rs/wasm-bindgen/0.2.62/wasm_bindgen/" target="_blank" rel="noopener">https://docs.rs/wasm-bindgen/0.2.62/wasm_bindgen/</a> )里都有介绍，为了方便理解我这里再用简单的文字描述一下：</p>
+<ol>
+<li><code>IntoWasmAbi</code>/<code>FromWasmAbi</code>，分别表示将一个Rust类型可以转换成一个小的handle类型，和转化回来。尺寸较大的类型没法用一个handle直接表示，所以肯定只能申请动态内存，用对应的指针来表示；尺寸较小的类型，如<code>u32</code>，<code>f64</code>等几个基本类型，可以用自身作为handle直接表示。</li>
+<li><code>ReturnWasmAbi</code>与<code>IntoWasmAbi</code>几乎是一个意思，只是为了处理一些我们这里不用考虑的特殊情形。<code>ReturnWasmAbi::return_abi</code>的默认实现就是调用<code>IntoWasmAbi::into_abi</code>。</li>
+<li><code>WasmDescribe</code>：文档中不公开，似乎与内部API的名字有关，看起来它的实现不能乱改，但是具体是怎么影响到其他代码的我现在也没有完全了解。</li>
+</ol>
+<p>接下来分析一下生成的代码的各个组件，为了美观我对生成的代码做了一点小调整，没有改变语义。请注意之前列出的WASM代码都是Rust代码翻译来的(中间经过了LLVM IR，不过这不重要)，而JS代码则不是，是根据Rust代码中的额外信息(即不是代码本身)加上一定的策略生成的，这我后面会提到。</p>
+<p>Rust的数据传递给JS：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">impl</span> IntoWasmAbi <span class="keyword">for</span> Answer &#123;</span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Abi</span></span> = <span class="built_in">u32</span>;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">into_abi</span></span>(<span class="keyword">self</span>) -&gt; <span class="built_in">u32</span> &#123;</span><br><span class="line">    <span class="keyword">use</span> wasm_bindgen::__rt::WasmRefCell;</span><br><span class="line">    <span class="built_in">Box</span>::into_raw(<span class="built_in">Box</span>::new(WasmRefCell::new(<span class="keyword">self</span>))) <span class="keyword">as</span> <span class="built_in">u32</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line">...</span><br><span class="line"><span class="comment">// 这是生成的WASM中export的函数，可以认为JS直接调用它，返回值会成赋值给前面的JS里的那个ptr</span></span><br><span class="line"><span class="meta">#[export_name = <span class="meta-string">"answer_new"</span>]</span></span><br><span class="line"><span class="keyword">pub</span> <span class="keyword">extern</span> <span class="string">"C"</span> <span class="function"><span class="keyword">fn</span> <span class="title">__wasm_bindgen_generated_Answer_new</span></span>() -&gt; &lt;Answer <span class="keyword">as</span> ReturnWasmAbi&gt;::Abi &#123;</span><br><span class="line">  &lt;Answer <span class="keyword">as</span> ReturnWasmAbi&gt;::return_abi(Answer::new())</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>JS调用Rust的函数：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">impl</span> FromWasmAbi <span class="keyword">for</span> Answer &#123;</span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Abi</span></span> = <span class="built_in">u32</span>;</span><br><span class="line">  <span class="keyword">unsafe</span> <span class="function"><span class="keyword">fn</span> <span class="title">from_abi</span></span>(js: <span class="built_in">u32</span>) -&gt; <span class="keyword">Self</span> &#123;</span><br><span class="line">    <span class="comment">// 这两个use的东西都和std中的对应物语义很接近</span></span><br><span class="line">    <span class="keyword">use</span> wasm_bindgen::__rt::&#123;assert_not_null, WasmRefCell&#125;;</span><br><span class="line">    <span class="keyword">let</span> ptr = js <span class="keyword">as</span> *<span class="keyword">mut</span> WasmRefCell&lt;Answer&gt;;</span><br><span class="line">    assert_not_null(ptr); <span class="comment">// 这就是空指针判断的来源</span></span><br><span class="line">    <span class="keyword">let</span> js = <span class="built_in">Box</span>::from_raw(ptr);</span><br><span class="line">    <span class="comment">// 与std中的RefCell的borrow_mut语义类似，只是这里没有用到返回值，所以相当于只是进行borrow check</span></span><br><span class="line">    <span class="comment">// 不过与std中的RefCell的实现不一样，感兴趣的可以自己去阅读源码</span></span><br><span class="line">    <span class="comment">// https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/src/lib.rs#L895</span></span><br><span class="line">    <span class="comment">// (不要去文档里找，WasmRefCell在文档中没有公开)</span></span><br><span class="line">    (*js).borrow_mut(); <span class="comment">// 这就是if (arg[0] != 0)和arg[0] = 0的来源</span></span><br><span class="line">    js.into_inner() <span class="comment">// 这个操作会move掉js，Box就是在这里析构，释放内存，这就是free的来源</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line">...</span><br><span class="line"><span class="comment">// 这是生成的WASM中export的函数，可以认为JS直接调用它，参数来自前面的JS里的那个ptr</span></span><br><span class="line"><span class="meta">#[export_name = <span class="meta-string">"answer_the_answer"</span>]</span></span><br><span class="line"><span class="keyword">pub</span> <span class="keyword">extern</span> <span class="string">"C"</span> <span class="function"><span class="keyword">fn</span> <span class="title">__wasm_bindgen_generated_Answer_the_answer</span></span>(me: <span class="built_in">u32</span>) -&gt; &lt;<span class="built_in">u32</span> <span class="keyword">as</span> ReturnWasmAbi&gt;::Abi &#123;</span><br><span class="line">  <span class="keyword">let</span> ret = <span class="keyword">unsafe</span> &#123; &lt;Answer <span class="keyword">as</span> FromWasmAbi&gt;::from_abi(me) &#125;.the_answer();</span><br><span class="line">  &lt;<span class="built_in">u32</span> <span class="keyword">as</span> ReturnWasmAbi&gt;::return_abi(ret)</span><br><span class="line">&#125;</span><br><span class="line">...</span><br><span class="line"><span class="comment">// 这是在JS的free函数中调用的，释放Rust这边的内存</span></span><br><span class="line"><span class="meta">#[cfg(all(target_arch = <span class="meta-string">"wasm32"</span>, not(target_os = <span class="meta-string">"emscripten"</span>)))]</span></span><br><span class="line"><span class="meta">#[no_mangle]</span></span><br><span class="line"><span class="keyword">pub</span> <span class="keyword">unsafe</span> <span class="keyword">extern</span> <span class="string">"C"</span> <span class="function"><span class="keyword">fn</span> <span class="title">__wbg_answer_free</span></span>(ptr: <span class="built_in">u32</span>) &#123;</span><br><span class="line">  &lt;Answer <span class="keyword">as</span> FromWasmAbi&gt;::from_abi(ptr);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从这一来一回的代码可以看出JS中保存一个指向Rust中的<code>WasmRefCell&lt;Answer&gt;</code>的指针(实际上是用<code>number</code>保存的)，这个指针是Rust这边动态申请得到的。为什么要用<code>WasmRefCell&lt;Answer&gt;</code>而不是直接用<code>Answer</code>呢？可以想象一个场景，Rust向JS export一个接受<code>&amp;mut self</code>的函数，也从JS import一个函数，其中也调用了接受<code>&amp;mut self</code>的函数，在Rust这边的函数中可以调用JS的函数，这样就不用<code>unsafe</code>而违背了借用规则。如果有<code>WasmRefCell</code>的话，当Rust调用JS，JS再调用Rust时，就会因为运行时的借用检查而失败。</p>
+<p>除了这些看起来比较正常的函数之外，还有一些奇形怪状的函数和数据：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">impl</span> WasmDescribe <span class="keyword">for</span> Answer &#123;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">describe</span></span>() &#123;</span><br><span class="line">    <span class="keyword">use</span> wasm_bindgen::describe::*;</span><br><span class="line">    inform(RUST_STRUCT);</span><br><span class="line">    inform(<span class="number">6u32</span>);</span><br><span class="line">    inform(<span class="number">65u32</span>);</span><br><span class="line">    inform(<span class="number">110u32</span>);</span><br><span class="line">    inform(<span class="number">115u32</span>);</span><br><span class="line">    inform(<span class="number">119u32</span>);</span><br><span class="line">    inform(<span class="number">101u32</span>);</span><br><span class="line">    inform(<span class="number">114u32</span>);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个一看就知道是在描述<code>Answer</code>的名字，6是名字的长度，后面的都是ascii码。这个实现是必要的，因为<code>wasm-bindgen</code>定义<code>trait IntoWasmAbi: WasmDescribe</code>。</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">impl</span> <span class="built_in">From</span>&lt;Answer&gt; <span class="keyword">for</span> JsValue &#123;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">from</span></span>(value: Answer) -&gt; <span class="keyword">Self</span> &#123;</span><br><span class="line">    <span class="keyword">let</span> ptr = IntoWasmAbi::into_abi(value);</span><br><span class="line">    <span class="meta">#[link(wasm_import_module = <span class="meta-string">"__wbindgen_placeholder__"</span>)]</span></span><br><span class="line">    <span class="meta">#[cfg(all(target_arch = <span class="meta-string">"wasm32"</span>, not(target_os = <span class="meta-string">"emscripten"</span>)))]</span></span><br><span class="line">    <span class="keyword">extern</span> <span class="string">"C"</span> &#123;</span><br><span class="line">      <span class="function"><span class="keyword">fn</span> <span class="title">__wbg_answer_new</span></span>(ptr: <span class="built_in">u32</span>) -&gt; <span class="built_in">u32</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">unsafe</span> &#123; &lt;JsValue <span class="keyword">as</span> FromWasmAbi&gt;::from_abi(__wbg_answer_new(ptr)) &#125;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个实现让Rust这边可以将一个<code>Answer</code>转化为<code>JsValue</code>，这样的trait实现如果我们不用到其功能的话是可以删掉的。</p>
+<p>还有一些例如<code>OptionIntoWasmAbi</code>，<code>RefMutFromWasmAbi</code>的trait实现，从名字就很容易看出其作用，也都是如果不用可以删掉的。</p>
+<p>剩下的对我们的优化没有什么帮助，因此不再分析了(其中有一些我也没有看懂)。</p>
+<h1 id="优化"><a href="#优化" class="headerlink" title="优化"></a>优化</h1><p>在我们的应用中没有必要用指向<code>WasmRefCell&lt;Answer&gt;</code>的指针来表示一个<code>Answer</code>，因为一个<code>u32</code>足以表示<code>Answer</code>，而且也没有一个函数需要修改<code>Answer</code>的内容，完全可以让JS只保存这个<code>u32</code>，遗憾的是目前<code>wasm-bindgen</code>没有这样的接口。我们的目标就是手动编写这些函数，实现这个目标。需要说明的是，这些代码中用到了很多<code>wasm-bindgen</code>的内部API，所以肯定不适合人手工编写，但是如果只是为了探索的目的，用在一些简单的个人项目里，并且写死<code>wasm-bindgen</code>的版本，我想应该也没有什么问题。</p>
+<p>我希望能够重写<code>IntoWasmAbi</code>等trait的实现，因此不能给结构体加上<code>#[wasm_bindgen]</code>的标记，而在impl块上的<code>#[wasm_bindgen]</code>则可以保留。为此，上面提到的所有函数中，除了我指出没有必要的，和与后面定义的函数相关的两个函数之外，其他函数都需要自己写一遍。</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// WasmDescribe的实现不用改变</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">impl</span> IntoWasmAbi <span class="keyword">for</span> Answer &#123;</span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Abi</span></span> = <span class="built_in">u32</span>;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">into_abi</span></span>(<span class="keyword">self</span>) -&gt; Self::Abi &#123; <span class="keyword">self</span>.<span class="number">0</span> &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">impl</span> FromWasmAbi <span class="keyword">for</span> Answer &#123;</span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Abi</span></span> = <span class="built_in">u32</span>;</span><br><span class="line">  <span class="keyword">unsafe</span> <span class="function"><span class="keyword">fn</span> <span class="title">from_abi</span></span>(js: Self::Abi) -&gt; <span class="keyword">Self</span> &#123; <span class="keyword">Self</span>(js) &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#[cfg(all(target_arch = <span class="meta-string">"wasm32"</span>, not(target_os = <span class="meta-string">"emscripten"</span>)))]</span></span><br><span class="line"><span class="meta">#[no_mangle]</span></span><br><span class="line"><span class="keyword">pub</span> <span class="keyword">unsafe</span> <span class="keyword">extern</span> <span class="string">"C"</span> <span class="function"><span class="keyword">fn</span> <span class="title">__wbg_answer_free</span></span>(_ptr: <span class="built_in">u32</span>) &#123;</span><br><span class="line">  <span class="comment">// 什么都不用做，因为Rust这边没有管理动态内存</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>至此还有一个问题，即使重写了这些函数，并不会影响到生成的JS的代码中将<code>ptr</code>置0的操作，这个操作是由<code>fn the_answer(self)</code>的定义决定的。如果你感兴趣是这个<code>self</code>是怎么转化到将<code>ptr</code>置0的操作，可以看下一节，这里我们用另一种方法绕过去：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#[wasm_bindgen]</span></span><br><span class="line"><span class="keyword">impl</span> Answer &#123;</span><br><span class="line">  <span class="meta">#[wasm_bindgen(getter)]</span></span><br><span class="line">  <span class="keyword">pub</span> <span class="function"><span class="keyword">fn</span> <span class="title">the_answer</span></span>(<span class="keyword">self</span>) -&gt; <span class="built_in">u32</span> &#123; <span class="keyword">self</span>.<span class="number">0</span> + <span class="number">1</span> &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这是feature吗？还是bug？反正根据实验，加上<code>#[wasm_bindgen(getter)]</code>标注后生成的JS的代码中就没有置0操作了。你可能会想到，如果在原来的代码中加上<br><code>#[wasm_bindgen(getter)]</code>，第二次访问<code>the_answer</code>的时候不就访问到被free的内存了吗？你想对了，是这样的，我这里会得到一个：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Error importing &#96;index.js&#96;: RuntimeError: memory access out of bounds</span><br></pre></td></tr></table></figure>
+
+<p>从一般的静态语言的常识来看，这样的错误不总能被检查出来，也许下次就会悄无声息地出错，谁知道呢。</p>
+<p>重申一遍，现在的Rust WASM工具链还在快速更新，这些东西如果只是为了探索的目的，用在一些简单的个人项目里，并且写死<code>wasm-bindgen</code>的版本，我觉得是没有什么问题的。</p>
+<p>最终代码为：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">use</span> wasm_bindgen::prelude::*;</span><br><span class="line"><span class="keyword">use</span> wasm_bindgen::convert::*;</span><br><span class="line"></span><br><span class="line"><span class="meta">#[derive(Copy, Clone)]</span></span><br><span class="line"><span class="keyword">pub</span> <span class="class"><span class="keyword">struct</span> <span class="title">Answer</span></span>(<span class="built_in">u32</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">impl</span> wasm_bindgen::describe::WasmDescribe <span class="keyword">for</span> Answer &#123;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">describe</span></span>() &#123;</span><br><span class="line">    <span class="comment">// 抄一下上面的实现...</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">impl</span> IntoWasmAbi <span class="keyword">for</span> Answer &#123;</span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Abi</span></span> = <span class="built_in">u32</span>;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">into_abi</span></span>(<span class="keyword">self</span>) -&gt; Self::Abi &#123; <span class="keyword">self</span>.<span class="number">0</span> &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">impl</span> FromWasmAbi <span class="keyword">for</span> Answer &#123;</span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Abi</span></span> = <span class="built_in">u32</span>;</span><br><span class="line">  <span class="keyword">unsafe</span> <span class="function"><span class="keyword">fn</span> <span class="title">from_abi</span></span>(js: Self::Abi) -&gt; <span class="keyword">Self</span> &#123; <span class="keyword">Self</span>(js) &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#[cfg(all(target_arch = <span class="meta-string">"wasm32"</span>, not(target_os = <span class="meta-string">"emscripten"</span>)))]</span></span><br><span class="line"><span class="meta">#[no_mangle]</span></span><br><span class="line"><span class="keyword">pub</span> <span class="keyword">unsafe</span> <span class="keyword">extern</span> <span class="string">"C"</span> <span class="function"><span class="keyword">fn</span> <span class="title">__wbg_answer_free</span></span>(_ptr: <span class="built_in">u32</span>) &#123;&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#[wasm_bindgen]</span></span><br><span class="line"><span class="keyword">impl</span> Answer &#123;</span><br><span class="line">  <span class="keyword">pub</span> <span class="function"><span class="keyword">fn</span> <span class="title">new</span></span>() -&gt; Answer &#123; Answer(<span class="number">41</span>) &#125;</span><br><span class="line">  <span class="meta">#[wasm_bindgen(getter)]</span></span><br><span class="line">  <span class="keyword">pub</span> <span class="function"><span class="keyword">fn</span> <span class="title">the_answer</span></span>(<span class="keyword">self</span>) -&gt; <span class="built_in">u32</span> &#123; <span class="keyword">self</span>.<span class="number">0</span> + <span class="number">1</span> &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<p>更新：</p>
+<p>坏消息，这个方法在最新的<code>wasm-bindgen</code>已经不再能work了。因为我自己给<code>wasm-bindgen</code>提了一个<a href="https://github.com/rustwasm/wasm-bindgen/issues/2168" target="_blank" rel="noopener">issue-2168</a>，作者觉得这确实是个bug，并且在<a href="https://github.com/rustwasm/wasm-bindgen/commit/cc36bdc00d3a41c67ee0a2c0af04a7c4323637a5" target="_blank" rel="noopener">commmit-cc36bdc</a>中修复了！修复的方式，修改的代码都与我设想的完全一样。</p>
+<p>不过好消息是这个commit是发布在<code>wasm-bindgen</code>的<code>0.2.63</code>版本中的(我还不确定Cargo每个版本的代码具体是怎么来的，它是在发布<code>0.2.63</code>之后版本的一次commit，我用<code>0.2.63</code>版本测试了一下还能work，也许是<code>0.2.64</code>版本才会发布这个改动)，也就是我用的<code>0.2.62</code>并不受影响。</p>
+<p>一个不利用这个bug也能work的版本，虽然经过了一些间接，麻烦一些，但是经过优化后生成的WASM代码是完全一样的：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 上面的代码基本复制下来，去掉impl FromWasmAbi for Answer和impl Answer块后再加上这些代码</span></span><br><span class="line"><span class="keyword">use</span> std::ops::Deref;</span><br><span class="line"></span><br><span class="line"><span class="keyword">pub</span> <span class="class"><span class="keyword">struct</span> <span class="title">AnswerWrapper</span></span>(Answer);</span><br><span class="line"></span><br><span class="line"><span class="keyword">impl</span> Deref <span class="keyword">for</span> AnswerWrapper &#123;</span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Target</span></span> = Answer;</span><br><span class="line">  <span class="function"><span class="keyword">fn</span> <span class="title">deref</span></span>(&amp;<span class="keyword">self</span>) -&gt; &amp;Self::Target &#123; &amp;<span class="keyword">self</span>.<span class="number">0</span> &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">impl</span> RefFromWasmAbi <span class="keyword">for</span> Answer &#123;</span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Abi</span></span> = <span class="built_in">u32</span>;</span><br><span class="line">  <span class="class"><span class="keyword">type</span> <span class="title">Anchor</span></span> = AnswerWrapper;</span><br><span class="line">  <span class="keyword">unsafe</span> <span class="function"><span class="keyword">fn</span> <span class="title">ref_from_abi</span></span>(js: Self::Abi) -&gt; Self::Anchor &#123; AnswerWrapper(Answer(js)) &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#[wasm_bindgen]</span></span><br><span class="line"><span class="keyword">impl</span> Answer &#123;</span><br><span class="line">  <span class="keyword">pub</span> <span class="function"><span class="keyword">fn</span> <span class="title">new</span></span>() -&gt; Answer &#123; Answer(<span class="number">41</span>) &#125;</span><br><span class="line">  <span class="comment">// 接受&amp;self的函数用的是RefFromWasmAbi这个trait</span></span><br><span class="line">  <span class="keyword">pub</span> <span class="function"><span class="keyword">fn</span> <span class="title">the_answer</span></span>(&amp;<span class="keyword">self</span>) -&gt; <span class="built_in">u32</span> &#123; <span class="keyword">self</span>.<span class="number">0</span> + <span class="number">1</span> &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<hr>
+<p>别忘了<code>www/index.js</code>里的<code>the_answer()</code>要改成<code>the_answer</code>。编译，<code>npm run start</code>，访问浏览器，成功！</p>
+<p>看看生成的WASM：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">(export &quot;answer_the_answer&quot; (func $0))</span><br><span class="line">...</span><br><span class="line">(func $0 (param $0 i32) (result i32)</span><br><span class="line"> (i32.add</span><br><span class="line">  (local.get $0)</span><br><span class="line">  (i32.const 1)</span><br><span class="line"> )</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>完美！</p>
+<h1 id="后续：JS代码的生成"><a href="#后续：JS代码的生成" class="headerlink" title="后续：JS代码的生成"></a>后续：JS代码的生成</h1><p>上面其实说到了，生成的”代码和数据”，数据在哪里呢？这是为<code>the_answer</code>生成的一个数组：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#[cfg(target_arch = <span class="meta-string">"wasm32"</span>)]</span></span><br><span class="line"><span class="meta">#[link_section = <span class="meta-string">"__wasm_bindgen_unstable"</span>]</span></span><br><span class="line"><span class="keyword">pub</span> <span class="keyword">static</span> __WASM_BINDGEN_GENERATED_7b43bf8185fa1d9d: [<span class="built_in">u8</span>; <span class="number">111usize</span>] = &#123;</span><br><span class="line">  <span class="keyword">static</span> _INCLUDED_FILES: &amp;[&amp;<span class="built_in">str</span>] = &amp;[];</span><br><span class="line">  * <span class="string">b".\x00\x00\x00&#123;\"schema_version\":\"0.2.62\",\"version\":\"0.2.62\"&#125;9\x00\x00\x00\x01\x01\x06Answer\x00\x01\x00\nthe_answer\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x15blog-680414cd2bd728e3\x00"</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>如果你把定义改成<code>the_answer(&amp;self)</code>，就会发现只有一个字节改变了，即<code>Answer\x00\x01\x00</code>变成了<code>Answer\x00\x00\x00</code>。删掉<code>the_answer</code>，只保留它生成的东西，生成的JS中有置0操作；再手动把<code>Answer\x00\x01\x00</code>改成<code>Answer\x00\x00\x00</code>，生成的JS中无置0操作。这个对比实验即可证明生成的JS代码的依据确实是这个数组。</p>
+<p>我通过阅读<code>wasm-bindgen</code>的源码已经理解了其中的原理，分别确定了这个字节是由函数的定义决定的，和JS中有无置0操作是由这个字节决定的。但是要完整地分析就太长了，而且这只是人家现在的实现而已，并没有什么原理上值得学习的地方，不值得长篇大论地去分析。这里只贴出相关的链接，感兴趣的人可以自己去阅读(不同文件间基本是按调用关系排序的)：</p>
+<p>这个字节是由函数的定义决定的：</p>
+<ol>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/backend/src/codegen.rs#L92" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/backend/src/codegen.rs#L92</a></li>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/backend/src/codegen.rs#L123" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/backend/src/codegen.rs#L123</a></li>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/backend/src/encode.rs#L358" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/backend/src/encode.rs#L358</a></li>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/backend/src/encode.rs#L423" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/backend/src/encode.rs#L423</a></li>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/backend/src/encode.rs#L497" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/backend/src/encode.rs#L497</a></li>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/shared/src/lib.rs#L8" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/shared/src/lib.rs#L8</a></li>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/shared/src/lib.rs#L93" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/shared/src/lib.rs#L93</a></li>
+</ol>
+<p>JS中有无置0操作是由这个字节决定的：</p>
+<ol>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/lib.rs#L349" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/lib.rs#L349</a></li>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/wit/mod.rs#L1409" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/wit/mod.rs#L1409</a></li>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/wit/mod.rs#L1466" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/wit/mod.rs#L1466</a></li>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/decode.rs#L157" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/decode.rs#L157</a> (decode的操作与encode类似，就不贴那么多链接了)</li>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/lib.rs#L429" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/lib.rs#L429</a></li>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/js/mod.rs#L2193" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/js/mod.rs#L2193</a> 到2196行</li>
+<li><a href="https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/js/binding.rs#L130" target="_blank" rel="noopener">https://github.com/rustwasm/wasm-bindgen/blob/87663c6d2a442d98b3d8ea6242f20c5c21fc0174/crates/cli-support/src/js/binding.rs#L130</a></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Rust/" rel="tag"># Rust</a>
+              <a href="/tags/WebAssembly/" rel="tag"># WebAssembly</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item"></div>
+      <div class="post-nav-item">
+    <a href="/2019-fall-summary-md/" rel="next" title="大三上总结">
+      大三上总结 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#环境"><span class="nav-number">1.</span> <span class="nav-text">环境</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#问题"><span class="nav-number">2.</span> <span class="nav-text">问题</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#探究原因"><span class="nav-number">3.</span> <span class="nav-text">探究原因</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#分析wasm-bindgen的工作原理"><span class="nav-number">4.</span> <span class="nav-text">分析wasm-bindgen的工作原理</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#优化"><span class="nav-number">5.</span> <span class="nav-text">优化</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#后续：JS代码的生成"><span class="nav-number">6.</span> <span class="nav-text">后续：JS代码的生成</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">MashPlant</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">18</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/MashPlant" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;MashPlant" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-rss fa-fw"></i>RSS</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">MashPlant</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a>
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'X7kE28uGIr8V7x8FaNWY71aY-gzGzoHsz',
+      appKey     : 'HdX9HsV0O0wHWAaEUurLSoTN',
+      placeholder: "发表你的评论",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : '' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

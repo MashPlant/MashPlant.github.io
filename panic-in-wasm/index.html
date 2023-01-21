@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mashplant.github.io","root":"/","scheme":"Pisces","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"flat"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="最近花了一点时间给我的Rust版minidecaf写了一个前端展示，地址在https:&#x2F;&#x2F;mashplant.online&#x2F;minidecaf-frontend&#x2F;。写的时候遇到了一个问题：Rust编译到wasm时看起来没法用catch_unwind从panic中恢复。这里记录一下我为了解决这个问题所做的尝试，虽然只有一种方法成功解决了问题，但是过程还是有点记录的价值。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="在wasm中尝试从panic中恢复">
+<meta property="og:url" content="https://mashplant.github.io/panic-in-wasm/index.html">
+<meta property="og:site_name" content="MashPlant的笔记">
+<meta property="og:description" content="最近花了一点时间给我的Rust版minidecaf写了一个前端展示，地址在https:&#x2F;&#x2F;mashplant.online&#x2F;minidecaf-frontend&#x2F;。写的时候遇到了一个问题：Rust编译到wasm时看起来没法用catch_unwind从panic中恢复。这里记录一下我为了解决这个问题所做的尝试，虽然只有一种方法成功解决了问题，但是过程还是有点记录的价值。">
+<meta property="article:published_time" content="2020-09-06T07:50:41.000Z">
+<meta property="article:modified_time" content="2020-09-06T17:40:26.732Z">
+<meta property="article:author" content="MashPlant">
+<meta property="article:tag" content="Rust">
+<meta property="article:tag" content="WebAssembly">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://mashplant.github.io/panic-in-wasm/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-Hans'
+  };
+</script>
+
+  <title>在wasm中尝试从panic中恢复 | MashPlant的笔记</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="MashPlant的笔记" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">MashPlant的笔记</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">“你将孤单度过一生”</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>About</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+  <div class="reading-progress-bar"></div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-Hans">
+    <link itemprop="mainEntityOfPage" href="https://mashplant.github.io/panic-in-wasm/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="MashPlant">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="MashPlant的笔记">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          在wasm中尝试从panic中恢复
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+              
+
+              <time title="Created: 2020-09-06 00:50:41 / Modified: 10:40:26" itemprop="dateCreated datePublished" datetime="2020-09-06T00:50:41-07:00">2020-09-06</time>
+            </span>
+
+          
+            <span id="/panic-in-wasm/" class="post-meta-item leancloud_visitors" data-flag-title="在wasm中尝试从panic中恢复" title="Views">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">Views: </span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine: </span>
+    
+    <a title="valine" href="/panic-in-wasm/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/panic-in-wasm/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>最近花了一点时间给我的Rust版minidecaf写了一个前端展示，地址在<a href="https://mashplant.online/minidecaf-frontend/" target="_blank" rel="noopener">https://mashplant.online/minidecaf-frontend/</a>。写的时候遇到了一个问题：Rust编译到wasm时看起来没法用<code>catch_unwind</code>从panic中恢复。这里记录一下我为了解决这个问题所做的尝试，虽然只有一种方法成功解决了问题，但是过程还是有点记录的价值。</p>
+<a id="more"></a>
+
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><p>为了简单，我的编译器代码中对各种类型错误，比如找不到变量，操作数类型不对之类的，都直接<code>panic</code>了，而不是用更加方便后续处理的<code>Result</code>那一套来表示失败。这样做确实简单一些，而且一般编译器本来一次运行也只编译一个程序，<code>panic</code>终止程序和返回<code>Err</code>然后上层处理在效果上其实没什么区别，但是如果做一个网页展示，用户会经常改变输入，那失败一次直接挂了就不太好了。我也不愿意为这种事情修改代码，所以要尝试在调用端解决这个问题。</p>
+<p>Rust中不鼓励从panic中恢复，但确实存在恢复的手段：<a href="https://doc.rust-lang.org/beta/std/panic/fn.catch_unwind.html" target="_blank" rel="noopener">catch_unwind</a>。然而当我在wasm中尝试使用这个函数时，仍然不能从panic中恢复，体现在JS那一侧就是函数抛出了一个异常：<code>RuntimeError: unreachable</code>，但是没法得到panic时的信息。</p>
+<p>首先创建一个简单的复现环境：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">use</span> wasm_bindgen::prelude::*;</span><br><span class="line"></span><br><span class="line"><span class="meta">#[wasm_bindgen]</span></span><br><span class="line"><span class="keyword">pub</span> <span class="function"><span class="keyword">fn</span> <span class="title">work</span></span>() &#123;</span><br><span class="line">  <span class="built_in">panic!</span>(<span class="string">"hello"</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>然后在JS那边调用它，结果会显示<code>RuntimeError: unreachable</code>，没有任何关于这个字符串<code>hello</code>的信息。debug build和release build结果差不多，前者会多一些栈帧信息，但是也没有关于<code>hello</code>的信息。在实际场景中，panic时传入的字符串是描述编译错误类型的信息，希望能够在panic之后得到这个字符串并把它在浏览器中显示出来。</p>
+<h1 id="尝试1：catch-unwind"><a href="#尝试1：catch-unwind" class="headerlink" title="尝试1：catch_unwind"></a>尝试1：<code>catch_unwind</code></h1><p>尝试像平常一样用<code>catch_unwind</code>来捕获这个panic：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#[wasm_bindgen]</span></span><br><span class="line"><span class="keyword">pub</span> <span class="function"><span class="keyword">fn</span> <span class="title">work</span></span>() -&gt; <span class="built_in">String</span> &#123;</span><br><span class="line">  <span class="keyword">let</span> res = std::panic::catch_unwind(|| &#123;</span><br><span class="line">    <span class="built_in">panic!</span>(<span class="string">"hello"</span>);</span><br><span class="line">  &#125;);</span><br><span class="line">  <span class="built_in">format!</span>(<span class="string">"&#123;:#?&#125;"</span>, res)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>catch_unwind</code>返回一个<code>Result&lt;T, Box&lt;dyn Any + Send + &#39;static&gt;&gt;</code>，如果闭包中的操作发生了panic，就返回<code>Err</code>，这个<code>Any</code>中包含了panic的信息。虽然有点麻烦，但是确实可以把panic的字符串从<code>Any</code>中提取出来，这里就不讨论了，只要能够得到这个<code>Result</code>就算成功获取了我们需要的信息。</p>
+<p>但是结果没有任何变化，<code>work</code>函数仍然不能正常返回，JS那边还是显示<code>RuntimeError: unreachable</code>。根本原因在于，<code>catch_unwind</code>其实本来就不保证能从任意的panic中恢复，它要求panic必须是以stack unwind的形式实现的，但是实际上目前Rust的wasm后端，不管指定panic按unwind实现还是按abort实现，结果都是按abort实现的。我想找相关的代码来验证这一点，但是不知道应该在什么地方找，就放弃了。</p>
+<p>用实验来验证比较容易，分别在<code>Cargo.toml</code>中指定</p>
+<figure class="highlight toml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[profile.release]</span></span><br><span class="line"><span class="attr">panic</span> = <span class="string">"unwind"</span></span><br></pre></td></tr></table></figure>
+
+<p>和</p>
+<figure class="highlight toml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[profile.release]</span></span><br><span class="line"><span class="attr">panic</span> = <span class="string">"abort"</span></span><br></pre></td></tr></table></figure>
+
+<p>在release build下生成的wasm文件是逐字节相同的。把<code>profile.release</code>都改成<code>profile.dev</code>，结果倒确实不是逐字节相同，但是我简单观察了一下也没有什么本质区别。</p>
+<p>所以本质上<code>catch_unwind</code>这一条路是走不通的，只要现在的wasm后端panic实现不改成unwind，无论做什么修补的工作都不可能让它成功捕获panic，从而得到想要的信息。</p>
+<h1 id="尝试2：panic-handler"><a href="#尝试2：panic-handler" class="headerlink" title="尝试2：panic_handler"></a>尝试2：<code>panic_handler</code></h1><p>之前在一些介绍bare metal下的Rust编程的文章中见过<code>panic_handler</code>这个东西，简单来说就是在<code>no_std</code>模式下需要定义一个<code>panic_handler</code>函数，类型是<code>fn (&amp;PanicInfo) -&gt; !</code>，用来在panic时调用。</p>
+<p>如果能够控制panic时的行为就能解决问题了，但是简单尝试一下之后就放弃了。因为不仅是<code>no_std</code>下需要定义<code>panic_handler</code>，而且也是只有在<code>no_std</code>下才能定义<code>panic_handler</code>，因为<code>std</code>中已经定义了一个<code>panic_handler</code>，自己再定义一个会报重复定义的错误。虽然我的程序稍微改改应该是可以在<code>no_std</code>下运行的，只要有<code>alloc</code>就行了，但是<code>wasm_bindgen</code>目前还是不能在<code>no_std</code>下运行：在<code>Cargo.toml</code>中为它定义<code>default-features = false</code>就可以让它不依赖<code>std</code>，但是会有很多编译错误，有一个<a href="https://github.com/rustwasm/wasm-bindgen/issues/1745" target="_blank" rel="noopener">issue</a>讨论这个问题，好像他们本来就没打算支持在<code>no_std</code>下运行。</p>
+<h1 id="尝试3：set-hook"><a href="#尝试3：set-hook" class="headerlink" title="尝试3：set_hook"></a>尝试3：<code>set_hook</code></h1><p><a href="https://doc.rust-lang.org/std/panic/fn.set_hook.html" target="_blank" rel="noopener">set_hook</a>函数可以定义一个钩子，在触发panic后，但在unwind或者abort前执行。</p>
+<p>一般来说用它不能实现通用意义上的”从panic中恢复”，如果不借助什么魔法的话，不可能从这个钩子函数里将控制流转移到触发panic前定义的的一个位置(类似其他语言中catch的位置)，只能在这个函数里做一点处理之后等着unwind或者abort。但是在这个实际问题中，它还是可以达到我期望的效果(获取错误信息，在浏览器中显示出来)的，有两个方法：</p>
+<ol>
+<li>可以在JS那边定义一个函数，它接受错误信息，负责在浏览器中它，Rust这边导入这个函数，在这里调用它。虽然后面还是会挂掉，但是任务已经达成了，只需要在JS那边catch这个<code>RuntimeError: unreachable</code>错误，然后直接忽略它即可</li>
+<li>可以调用<code>wasm_bindgen::throw_str</code>，把错误信息字符串抛出去，在JS那边catch它，然后就可以随便操作了。这其实就算是上面说的”魔法”，因为它真的改变了控制流，可以不unwind或者abort，而是跳转到panic前定义的的一个位置，虽然这个位置只能在JS中，不能在Rust中</li>
+</ol>
+<p>两种方法在我的应用中没有本质区别，我也都尝试过了，但都失败了：第一次和第二次编译一个有错误的程序时都能得到错误信息，但是第三次及之后就不能了，如果第一种方法中不忽略catch到的错误，或者是用第二种方法，都会发现第三次及之后还是得到了<code>RuntimeError: unreachable</code>。</p>
+<p>研究之后发现标准库中执行钩子函数之前会先进行一些检查。在<code>std::panicking::panic_count</code>模块中定义了一个全局的和一个thread local的计数器，用来表示当前正在发生的panic数量。发生panic时先增加计数器，如果panic被捕获，在后续的清理中会减少计数器，而如果没有被捕获，也就是我们这里的情形，计数器就不会减少。在一般的Rust程序中panic没有被捕获应该会导致整个程序结束，所以减不减少不会有任何区别，但是这里panic没有被捕获只会在JS那边抛出一个异常，不会导致网页崩溃之类的后果，之后还可以调用Rust中的函数，这样之前的计数器的值就留下来了。</p>
+<p>在<code>std::panicking::rust_panic_with_hook</code>函数中执行钩子函数之前会检查这个计数器，如果增加1之后大于2，也就是在第三次调用它时，就会直接abort。我写这篇文章的时候的代码可以参考<a href="https://github.com/rust-lang/rust/blob/4b65872d272875adb298b6dc12d5e4e79cf8e263/library/std/src/panicking.rs#L559" target="_blank" rel="noopener">https://github.com/rust-lang/rust/blob/4b65872d272875adb298b6dc12d5e4e79cf8e263/library/std/src/panicking.rs#L559</a>。</p>
+<h2 id="尝试3-1：修改计数器"><a href="#尝试3-1：修改计数器" class="headerlink" title="尝试3-1：修改计数器"></a>尝试3-1：修改计数器</h2><p><code>std::panicking::panic_count</code>模块是private的，所以不能通过调用里面的函数来修改计数器。但是理论上可以找到这两个计数器mangle之后的符号，这样可以绕过private的限制。比如<code>std::panicking::panic_count::GLOBAL_PANIC_COUNT</code> mangle之后的符号是<code>_ZN3std9panicking11panic_count18GLOBAL_PANIC_COUNT17he5d2b5eed51f22a6E</code>，可以这样修改它：</p>
+<figure class="highlight rust"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">extern</span> <span class="string">"C"</span> &#123;</span><br><span class="line">  <span class="meta">#[no_mangle]</span></span><br><span class="line">  <span class="keyword">static</span> <span class="keyword">mut</span> _ZN3std9panicking11panic_count18GLOBAL_PANIC_COUNT17he5d2b5eed51f22a6E: <span class="built_in">usize</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">unsafe</span> &#123;</span><br><span class="line">  _ZN3std9panicking11panic_count18GLOBAL_PANIC_COUNT17he5d2b5eed51f22a6E = <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>我在普通的Rust程序中试过了，这样确实可以成功修改<code>GLOBAL_PANIC_COUNT</code>，但是在wasm中尝试时链接器报告说找不到这个符号。不知道是为什么，我猜测可能wasm中的全局变量不是这样实现的，可能没有符号这样的概念，如果有错麻烦大家指正。</p>
+<p>其实还有一个问题。我们实际上不是要修改<code>GLOBAL_PANIC_COUNT</code>，而是<code>LOCAL_PANIC_COUNT</code>，但是它是一个thread local变量，看起来实现有点复杂，至少不是直接保存一个<code>usize</code>，我没有找到它实际存储的地址的符号。</p>
+<h2 id="尝试3-2：派生线程"><a href="#尝试3-2：派生线程" class="headerlink" title="尝试3-2：派生线程"></a>尝试3-2：派生线程</h2><p>既然是想清零thread local的<code>LOCAL_PANIC_COUNT</code>，有一个虽然看起来有点蠢，但是理论上还是可行的做法：每次计算都派生一个新的线程，每次新线程中它应该都是初始值0。我直接尝试了一下<code>thread::spawn</code>，但是派生失败了，想一下也是很合理的，wasm中应该没法做到这种事情。</p>
+<p>我看到<code>wasm_bindgen</code>中已经有用<code>rayon</code>多线程计算的例子了，本来以为现在wasm中已经支持派生线程了，但是点进去仔细看了一下，它还是基于JS中worker那一套实现的，不是基于<code>thread::spawn</code>派生的线程。感觉像它一样实现太麻烦了，也不确定能不能达成我要的效果，就没有尝试了。</p>
+<h2 id="尝试3-3：重置内存"><a href="#尝试3-3：重置内存" class="headerlink" title="尝试3-3：重置内存"></a>尝试3-3：重置内存</h2><p>我的程序中是不需要保存任何全局信息的，理论上每次调用前都可以使用第一次调用前的那一份内存，都应该会产生正确的结果。不管这个计数器到底在内存中的哪里，反正总是在内存里面的，只要重置整个内存总是可以把它清零的。</p>
+<p>如果是一般的程序，这个做法看起来没有什么可行性，但是wasm中有一个导出的<code>memory</code>变量，可以在JS中操作它，这样做就是操作Rust的内存。<code>new TypedArray(memory.buffer)</code>会创建一个引用memory的数组，修改它就是修改memory，<code>new TypedArray(array)</code>会把array复制一份，它和原来的内存互不干扰。最后的实现是这样的：</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 一开始执行一次</span></span><br><span class="line"><span class="keyword">const</span> init_mem = <span class="keyword">new</span> <span class="built_in">Int32Array</span>(<span class="keyword">new</span> <span class="built_in">Int32Array</span>(memory.buffer));</span><br><span class="line"></span><br><span class="line"><span class="comment">// 每次调用前执行</span></span><br><span class="line"><span class="keyword">new</span> <span class="built_in">Int32Array</span>(memory.buffer).set(init_mem);</span><br></pre></td></tr></table></figure>
+
+<p>这次尝试最终成功了。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Rust/" rel="tag"># Rust</a>
+              <a href="/tags/WebAssembly/" rel="tag"># WebAssembly</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/lalr1-introduction/" rel="prev" title="lalr1使用指导">
+      <i class="fa fa-chevron-left"></i> lalr1使用指导
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/rust-wasm-link-cpp/" rel="next" title="在Rust的wasm后端中链接C++">
+      在Rust的wasm后端中链接C++ <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#背景"><span class="nav-number">1.</span> <span class="nav-text">背景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#尝试1：catch-unwind"><span class="nav-number">2.</span> <span class="nav-text">尝试1：catch_unwind</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#尝试2：panic-handler"><span class="nav-number">3.</span> <span class="nav-text">尝试2：panic_handler</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#尝试3：set-hook"><span class="nav-number">4.</span> <span class="nav-text">尝试3：set_hook</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#尝试3-1：修改计数器"><span class="nav-number">4.1.</span> <span class="nav-text">尝试3-1：修改计数器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#尝试3-2：派生线程"><span class="nav-number">4.2.</span> <span class="nav-text">尝试3-2：派生线程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#尝试3-3：重置内存"><span class="nav-number">4.3.</span> <span class="nav-text">尝试3-3：重置内存</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">MashPlant</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">18</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/MashPlant" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;MashPlant" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-rss fa-fw"></i>RSS</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">MashPlant</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://pisces.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a>
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'X7kE28uGIr8V7x8FaNWY71aY-gzGzoHsz',
+      appKey     : 'HdX9HsV0O0wHWAaEUurLSoTN',
+      placeholder: "发表你的评论",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : '' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
